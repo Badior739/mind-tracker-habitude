@@ -77,14 +77,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Mind Tracker — Mind Graphix Solution" },
+      { title: "Mind Tracker" },
       { name: "description", content: "Suivez vos activités quotidiennes, finances et roadmap stratégique en un seul endroit." },
       { name: "author", content: "Mind Graphix Solution" },
       { property: "og:title", content: "Mind Tracker" },
-      { property: "og:description", content: "Tracker personnel & financier — Mind Graphix Solution." },
+      { property: "og:description", content: "Suivez vos activités quotidiennes, finances et roadmap stratégique en un seul endroit." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Mind Tracker" },
+      { name: "twitter:description", content: "Suivez vos activités quotidiennes, finances et roadmap stratégique en un seul endroit." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/89d2a897-8417-424f-b2e0-4b906a08ad17/id-preview-3fd23986--1ef18c4a-53a6-441b-a9d8-679db4c058e6.lovable.app-1781432210541.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/89d2a897-8417-424f-b2e0-4b906a08ad17/id-preview-3fd23986--1ef18c4a-53a6-441b-a9d8-679db4c058e6.lovable.app-1781432210541.png" },
     ],
     links: [
       {
