@@ -23,3 +23,7 @@ export const fmtCFA = (n: number) =>
 
 export const pct = (n: number, digits = 1) =>
   `${(n * 100).toFixed(digits)}%`;
+
+/** Masque les montants si le mode discret est actif. */
+export const fmtCFAMasked = (n: number, discreet: boolean) =>
+  discreet ? "••••• F" : fmtCFA(n);
