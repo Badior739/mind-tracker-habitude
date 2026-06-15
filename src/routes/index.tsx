@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Shell, type TabKey } from "@/components/mind/Shell";
 import { DashboardView } from "@/components/mind/Dashboard";
 import { ActivitiesView } from "@/components/mind/Activities";
@@ -8,6 +8,12 @@ import { FinancesView } from "@/components/mind/Finances";
 import { HistoryView } from "@/components/mind/History";
 import { RoadmapView } from "@/components/mind/Roadmap";
 import { GuideView } from "@/components/mind/Guide";
+import { SettingsView } from "@/components/mind/Settings";
+import { PinLock } from "@/components/mind/PinLock";
+import { StreaksPanel } from "@/components/mind/Streaks";
+import { useLocalStorage } from "@/lib/storage";
+import { DEFAULT_APP_PREFS, DEFAULT_NOTIFS, type AppPrefs, type NotifPrefs } from "@/lib/prefs";
+import { runNotificationChecks } from "@/lib/notifications";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -23,8 +29,55 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const [tab, setTab] = useState<TabKey>("dashboard");
+  const [locked, setLocked] = useState(true);
+  const [pinMode, setPinMode] = useState<"auto" | "setup">("auto");
+  const [app] = useLocalStorage<AppPrefs>("mt.app.v1", DEFAULT_APP_PREFS);
+  const [notifs] = useLocalStorage<NotifPrefs>("mt.notifs.v1", DEFAULT_NOTIFS);
+  const idleTimer = useRef<number | null>(null);
+
+  // Auto-lock par inactivité
+  useEffect(() => {
+    if (locked) return;
+    const reset = () => {
+      if (idleTimer.current) window.clearTimeout(idleTimer.current);
+      idleTimer.current = window.setTimeout(() => setLocked(true), app.lockTimeoutMs) as unknown as number;
+    };
+    const events = ["mousemove", "keydown", "touchstart", "click", "scroll"];
+    events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+    const onHide = () => { if (document.visibilityState === "hidden") setLocked(true); };
+    document.addEventListener("visibilitychange", onHide);
+    reset();
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, reset));
+      document.removeEventListener("visibilitychange", onHide);
+      if (idleTimer.current) window.clearTimeout(idleTimer.current);
+    };
+  }, [locked, app.lockTimeoutMs]);
+
+  // Vérifications notifications périodiques
+  useEffect(() => {
+    if (locked) return;
+    runNotificationChecks(notifs);
+    const id = window.setInterval(() => runNotificationChecks(notifs), 60_000);
+    return () => window.clearInterval(id);
+  }, [locked, notifs]);
+
+  // Enregistrer le service worker / manifest (PWA légère)
+  useEffect(() => {
+    const link = document.querySelector('link[rel="manifest"]');
+    if (!link) {
+      const l = document.createElement("link");
+      l.rel = "manifest"; l.href = "/manifest.webmanifest";
+      document.head.appendChild(l);
+    }
+  }, []);
+
+  if (locked) {
+    return <PinLock mode={pinMode} onUnlock={() => { setLocked(false); setPinMode("auto"); }} />;
+  }
+
   return (
-    <Shell tab={tab} onTab={setTab}>
+    <Shell tab={tab} onTab={setTab} onLock={() => setLocked(true)}>
       {tab === "dashboard"  && <DashboardView goto={setTab} />}
       {tab === "activities" && <ActivitiesView />}
       {tab === "annual"     && <AnnualView />}
@@ -32,6 +85,8 @@ function Index() {
       {tab === "history"    && <HistoryView />}
       {tab === "roadmap"    && <RoadmapView />}
       {tab === "guide"      && <GuideView />}
+      {tab === "settings"   && <SettingsView onChangePin={() => { setPinMode("setup"); setLocked(true); }} />}
+      {tab === "dashboard"  && <div className="mt-6"><StreaksPanel /></div>}
     </Shell>
   );
 }

@@ -89,12 +89,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:description", content: "Suivez vos activités quotidiennes, finances et roadmap stratégique en un seul endroit." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/89d2a897-8417-424f-b2e0-4b906a08ad17/id-preview-3fd23986--1ef18c4a-53a6-441b-a9d8-679db4c058e6.lovable.app-1781432210541.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/89d2a897-8417-424f-b2e0-4b906a08ad17/id-preview-3fd23986--1ef18c4a-53a6-441b-a9d8-679db4c058e6.lovable.app-1781432210541.png" },
+      { name: "theme-color", content: "#0b1220" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: "Mind Tracker" },
     ],
     links: [
       {
         rel: "stylesheet",
         href: appCss,
       },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/icon-512.png" },
+      { rel: "icon", href: "/icon-512.png" },
     ],
   }),
   shellComponent: RootShell,
