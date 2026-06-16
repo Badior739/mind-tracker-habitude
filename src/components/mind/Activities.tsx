@@ -1,8 +1,8 @@
-import { useMemo } from "react";
-import { ACTIVITIES, MONTHS, daysInMonth, dayLabel, type DayEntry } from "@/lib/mind-data";
+import { useMemo, useState } from "react";
+import { ACTIVITIES, MONTHS, daysInMonth, dayLabel, type DayEntry, type CustomActivity } from "@/lib/mind-data";
 import { useLocalStorage } from "@/lib/storage";
 import { Panel, TextInput, Toggle, ProgressBar } from "./ui";
-import { ChevronLeft, ChevronRight, Flame, Trophy, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, Flame, Trophy, CalendarDays, Plus, Trash2, Settings as SettingsIcon } from "lucide-react";
 
 type MonthData = Record<number, DayEntry>;
 
@@ -28,6 +28,19 @@ export function ActivitiesView() {
   const [month, setMonth] = useLocalStorage("mt.act.month", today.getMonth());
   const key = `mt.act.${year}-${month}`;
   const [data, setData] = useLocalStorage<MonthData>(key, {});
+  const [activities, setActivities] = useLocalStorage<CustomActivity[]>(
+    "mt.activities",
+    ACTIVITIES.map((a) => ({ key: a.key, label: a.label, emoji: a.emoji }))
+  );
+  const [showConfig, setShowConfig] = useState(false);
+
+  const addActivity = () => {
+    const k = `act-${Date.now()}`;
+    setActivities([...activities, { key: k, label: "Nouvelle activité", emoji: "✨" }]);
+  };
+  const delActivity = (k: string) => setActivities(activities.filter(a => a.key !== k));
+  const updActivity = (k: string, patch: Partial<CustomActivity>) =>
+    setActivities(activities.map(a => a.key === k ? { ...a, ...patch } : a));
 
   const dim = daysInMonth(year, month);
   const days = useMemo(() => Array.from({ length: dim }, (_, i) => i + 1), [dim]);
@@ -37,32 +50,34 @@ export function ActivitiesView() {
 
   const scores = days.map((d) => {
     const e = data[d] || {};
-    return ACTIVITIES.reduce((s, a) => s + (e[a.key] ? 1 : 0), 0);
+    return activities.reduce((s, a) => s + (e[a.key] ? 1 : 0), 0);
   });
   const totalScore = scores.reduce((a, b) => a + b, 0);
-  const possible = dim * ACTIVITIES.length;
+  const maxScore = activities.length || 1;
+  const possible = dim * maxScore;
   const avg = totalScore / dim;
   const pctAvg = (totalScore / possible) * 100;
 
   // Streak : jours consécutifs avec score >= 8
+  const streakThreshold = Math.max(1, Math.ceil(maxScore * 0.72));
   const currentStreak = useMemo(() => {
     let streak = 0;
     for (let i = days.length - 1; i >= 0; i--) {
-      if (scores[i] >= 8) streak++;
+      if (scores[i] >= streakThreshold) streak++;
       else if (scores[i] > 0) break; // jour existant mais score < 8 = coupure
       else if (i < days.length - 1) break; // jour futur, on arrête
     }
     return streak;
-  }, [scores, days.length]);
+  }, [scores, days.length, streakThreshold]);
 
   const bestStreak = useMemo(() => {
     let best = 0, cur = 0;
     for (const s of scores) {
-      if (s >= 8) { cur++; best = Math.max(best, cur); }
+      if (s >= streakThreshold) { cur++; best = Math.max(best, cur); }
       else cur = 0;
     }
     return best;
-  }, [scores]);
+  }, [scores, streakThreshold]);
 
   const bestDay = useMemo(() => {
     let bestScore = -1, bestD = 1;
@@ -102,6 +117,42 @@ export function ActivitiesView() {
   return (
     <div className="space-y-6">
       <Panel
+        title={<span className="flex items-center gap-2"><SettingsIcon className="h-4 w-4 text-primary" /> Mes activités ({activities.length})</span>}
+        action={
+          <div className="flex items-center gap-2">
+            <button onClick={addActivity} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary/15 text-primary border border-primary/30 text-xs hover:bg-primary/25 transition">
+              <Plus className="h-3.5 w-3.5" />Ajouter
+            </button>
+            <button onClick={() => setShowConfig(s => !s)} className="px-3 py-1.5 rounded-md border border-border text-xs hover:bg-secondary transition">
+              {showConfig ? "Masquer" : "Configurer"}
+            </button>
+          </div>
+        }
+      >
+        {showConfig ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {activities.map((a) => (
+              <div key={a.key} className="flex items-center gap-2 rounded-lg border border-border p-2" style={{ background: "var(--gradient-card)" }}>
+                <TextInput value={a.emoji} onChange={(v) => updActivity(a.key, { emoji: v })} className="w-12 text-center !px-1" />
+                <TextInput value={a.label} onChange={(v) => updActivity(a.key, { label: v })} />
+                <button onClick={() => delActivity(a.key)} className="grid place-items-center h-8 w-8 shrink-0 rounded-md border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {activities.map((a) => (
+              <span key={a.key} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-xs">
+                <span>{a.emoji}</span>{a.label}
+              </span>
+            ))}
+          </div>
+        )}
+      </Panel>
+
+      <Panel
         title={
           <div className="flex items-center gap-3">
             <button onClick={() => shift(-1)} className="grid place-items-center h-8 w-8 rounded-md border border-border hover:bg-secondary"><ChevronLeft className="h-4 w-4" /></button>
@@ -111,7 +162,7 @@ export function ActivitiesView() {
         }
         action={
           <div className="flex items-center gap-6 text-xs text-muted-foreground">
-            <div>Score moyen : <span className="text-primary font-semibold">{avg.toFixed(2)}/11</span></div>
+            <div>Score moyen : <span className="text-primary font-semibold">{avg.toFixed(2)}/{maxScore}</span></div>
             <div>Réussite : <span className="text-accent font-semibold">{pctAvg.toFixed(1)}%</span></div>
           </div>
         }
@@ -131,14 +182,14 @@ export function ActivitiesView() {
             ))}
             {days.map((d) => {
               const score = scores[d - 1];
-              const color = getScoreColor(score, ACTIVITIES.length);
-              const tc = getScoreTextColor(score, ACTIVITIES.length);
+              const color = getScoreColor(score, maxScore);
+              const tc = getScoreTextColor(score, maxScore);
               const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
               return (
                 <div
                   key={d}
                   className={`aspect-square rounded-lg flex flex-col items-center justify-center gap-0.5 transition-all hover:scale-105 cursor-pointer ${color} ${isToday ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : ""}`}
-                  title={`${dayLabel(year, month, d)} — ${score}/11`}
+                  title={`${dayLabel(year, month, d)} — ${score}/${maxScore}`}
                 >
                   <span className="text-[10px] font-medium text-foreground/80">{d}</span>
                   <span className={`text-[10px] font-bold ${tc}`}>{score}</span>
@@ -167,7 +218,7 @@ export function ActivitiesView() {
           <div className="rounded-xl border border-border p-3 flex items-center gap-3" style={{ background: "var(--gradient-card)" }}>
             <div className="h-9 w-9 rounded-lg bg-[color:var(--success)]/10 grid place-items-center"><Trophy className="h-4 w-4 text-[color:var(--success)]" /></div>
             <div>
-              <div className="text-lg font-bold leading-none">{bestDay.score}/11</div>
+              <div className="text-lg font-bold leading-none">{bestDay.score}/{maxScore}</div>
               <div className="text-[10px] text-muted-foreground mt-0.5">Meilleur jour ({bestDay.day})</div>
             </div>
           </div>
@@ -190,11 +241,11 @@ export function ActivitiesView() {
                   <span className="text-xs text-muted-foreground w-14 shrink-0">Semaine {w.week}</span>
                   <div className="flex-1">
                     <ProgressBar
-                      value={(w.avg / ACTIVITIES.length) * 100}
-                      tone={w.avg >= 8 ? "success" : w.avg >= 5 ? "primary" : w.avg >= 3 ? "warning" : "destructive"}
+                      value={(w.avg / maxScore) * 100}
+                      tone={w.avg >= streakThreshold ? "success" : w.avg >= maxScore * 0.45 ? "primary" : w.avg >= maxScore * 0.25 ? "warning" : "destructive"}
                     />
                   </div>
-                  <span className="text-xs font-medium w-16 text-right">{w.avg.toFixed(1)}/11</span>
+                  <span className="text-xs font-medium w-16 text-right">{w.avg.toFixed(1)}/{maxScore}</span>
                   <span className="text-[10px] text-muted-foreground w-10 text-right">max {w.best}</span>
                 </div>
               ))}
@@ -209,13 +260,13 @@ export function ActivitiesView() {
               <tr className="text-muted-foreground">
                 <th className="sticky left-0 bg-card text-left font-medium py-2 pr-2 min-w-[110px] z-10">📅 Jour</th>
                 <th className="font-medium py-2 px-2 min-w-[70px]">⏰ Réveil</th>
-                {ACTIVITIES.map((a) => (
+                {activities.map((a) => (
                   <th key={a.key} className="font-medium py-2 px-1 text-center min-w-[44px]" title={a.label}>
                     <div className="text-base leading-none">{a.emoji}</div>
                     <div className="text-[10px] mt-1 text-muted-foreground">{a.label.split(" ")[0]}</div>
                   </th>
                 ))}
-                <th className="font-medium py-2 px-2 text-center">⭐ /11</th>
+                <th className="font-medium py-2 px-2 text-center">⭐ /{maxScore}</th>
                 <th className="font-medium py-2 px-2 text-center">📊 %</th>
                 <th className="font-medium py-2 px-2 min-w-[180px]">📝 Notes</th>
               </tr>
@@ -224,7 +275,7 @@ export function ActivitiesView() {
               {days.map((d, i) => {
                 const e = data[d] || {};
                 const score = scores[i];
-                const p = (score / ACTIVITIES.length) * 100;
+                const p = (score / maxScore) * 100;
                 return (
                   <tr key={d} className="border-t border-border">
                     <td className="sticky left-0 bg-card py-1.5 pr-2 font-medium text-foreground z-10">
@@ -233,7 +284,7 @@ export function ActivitiesView() {
                     <td className="py-1.5 px-1">
                       <TextInput value={e.reveil || ""} onChange={(v) => setDay(d, { reveil: v })} placeholder="06:30" className="text-center" />
                     </td>
-                    {ACTIVITIES.map((a) => (
+                    {activities.map((a) => (
                       <td key={a.key} className="py-1.5 px-1 text-center">
                         <div className="flex justify-center">
                           <Toggle on={!!e[a.key]} onChange={(v) => setDay(d, { [a.key]: v } as Partial<DayEntry>)} />
