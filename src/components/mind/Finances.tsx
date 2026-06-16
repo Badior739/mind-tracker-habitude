@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { CATEGORY_META, DEFAULT_FINANCE_LINES, MONTHS, type FinanceCategory, type FinanceLine } from "@/lib/mind-data";
 import { useLocalStorage, fmtCFA, pct } from "@/lib/storage";
 import { Panel, NumberInput, TextInput, StatCard, ProgressBar } from "./ui";
-import { Wallet, TrendingDown, TrendingUp, PiggyBank, Target, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
+import { Wallet, TrendingDown, TrendingUp, PiggyBank, Target, ArrowUpRight, ArrowDownRight, Plus, Trash2 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip } from "recharts";
 
 const PIE_COLORS = {
@@ -70,6 +70,13 @@ export function FinancesView() {
 
   const upd = (id: string, patch: Partial<FinanceLine>) =>
     setLines(lines.map((l) => l.id === id ? { ...l, ...patch } : l));
+
+  const addLine = (category: FinanceCategory) => {
+    const emojis: Record<FinanceCategory, string> = { revenus: "💰", essentiel: "🧾", investissement: "🚀", epargne: "🏦" };
+    const id = `${category}-${Date.now()}`;
+    setLines([...lines, { id, category, emoji: emojis[category], label: "Nouveau poste", budget: 0, reel: 0 }]);
+  };
+  const delLine = (id: string) => setLines(lines.filter(l => l.id !== id));
 
   const totals = useMemo(() => {
     const t = (cat: FinanceCategory, k: "budget" | "reel") =>
@@ -240,11 +247,13 @@ export function FinancesView() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-xs uppercase tracking-wider text-muted-foreground">
-                    <th className="text-left font-medium py-2">Catégorie / Poste</th>
+                    <th className="text-left font-medium py-2 w-12">Icône</th>
+                    <th className="text-left font-medium py-2">Poste</th>
                     <th className="text-right font-medium py-2 w-32">Budget</th>
                     <th className="text-right font-medium py-2 w-32">Réel</th>
                     <th className="text-right font-medium py-2 w-32">Écart</th>
                     <th className="text-left font-medium py-2 pl-3">Notes</th>
+                    <th className="w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -252,8 +261,11 @@ export function FinancesView() {
                     const e = l.reel - l.budget;
                     return (
                       <tr key={l.id} className="border-t border-border">
+                        <td className="py-2 pr-1">
+                          <TextInput value={l.emoji} onChange={(v) => upd(l.id, { emoji: v })} className="text-center !px-1" />
+                        </td>
                         <td className="py-2 pr-3">
-                          <span className="mr-2">{l.emoji}</span>{l.label}
+                          <TextInput value={l.label} onChange={(v) => upd(l.id, { label: v })} />
                         </td>
                         <td className="py-2 px-1"><NumberInput value={l.budget} onChange={(v) => upd(l.id, { budget: v })} /></td>
                         <td className="py-2 px-1"><NumberInput value={l.reel} onChange={(v) => upd(l.id, { reel: v })} /></td>
@@ -263,11 +275,21 @@ export function FinancesView() {
                         <td className="py-2 pl-3">
                           <TextInput value={l.notes || ""} onChange={(v) => upd(l.id, { notes: v })} placeholder="…" />
                         </td>
+                        <td className="py-2 pl-2">
+                          <button onClick={() => delLine(l.id)} title="Supprimer" className="grid place-items-center h-8 w-8 rounded-md border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
+            </div>
+            <div className="mt-3">
+              <button onClick={() => addLine(cat)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary/15 text-primary border border-primary/30 text-xs hover:bg-primary/25 transition">
+                <Plus className="h-3.5 w-3.5" />Ajouter une ligne
+              </button>
             </div>
           </Panel>
         );
