@@ -14,10 +14,13 @@ export const ACTIVITIES = [
 
 export type ActivityKey = (typeof ACTIVITIES)[number]["key"];
 
+export type CustomActivity = { key: string; label: string; emoji: string };
+
 export type DayEntry = {
   reveil?: string;
   notes?: string;
-} & { [K in ActivityKey]?: boolean };
+  [key: string]: any;
+};
 
 export const MONTHS = [
   "Janvier","Février","Mars","Avril","Mai","Juin",
