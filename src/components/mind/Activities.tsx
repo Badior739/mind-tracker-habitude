@@ -254,7 +254,60 @@ export function ActivitiesView() {
         )}
 
         {/* Tableau détaillé */}
-        <div className="overflow-x-auto -mx-5 px-5">
+        {/* Mobile : cartes par jour */}
+        <div className="md:hidden space-y-3">
+          {days.map((d, i) => {
+            const e = data[d] || {};
+            const score = scores[i];
+            const p = (score / maxScore) * 100;
+            return (
+              <div key={d} className="rounded-xl border border-border p-3" style={{ background: "var(--gradient-card)" }}>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="font-semibold text-sm">{dayLabel(year, month, d)}</div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-bold ${getScoreTextColor(score, maxScore)}`}>{score}/{maxScore}</span>
+                    <span className="text-[10px] text-muted-foreground">{p.toFixed(0)}%</span>
+                  </div>
+                </div>
+                <ProgressBar value={p} tone={p >= 75 ? "success" : p >= 50 ? "primary" : p >= 25 ? "warning" : "destructive"} />
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <label className="text-[11px] text-muted-foreground">
+                    ⏰ Réveil
+                    <TextInput value={e.reveil || ""} onChange={(v) => setDay(d, { reveil: v })} placeholder="06:30" className="mt-1" />
+                  </label>
+                  <label className="text-[11px] text-muted-foreground">
+                    📝 Notes
+                    <TextInput value={e.notes || ""} onChange={(v) => setDay(d, { notes: v })} placeholder="…" className="mt-1" />
+                  </label>
+                </div>
+                <div className="mt-3">
+                  <div className="text-[11px] text-muted-foreground mb-1.5">Activités</div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {activities.map((a) => (
+                      <button
+                        key={a.key}
+                        type="button"
+                        onClick={() => setDay(d, { [a.key]: !e[a.key] } as Partial<DayEntry>)}
+                        className={`flex items-center gap-2 px-2 py-1.5 rounded-md border text-xs transition ${
+                          e[a.key]
+                            ? "bg-primary/15 border-primary/50 text-primary"
+                            : "border-border text-muted-foreground"
+                        }`}
+                      >
+                        <span className="text-sm">{a.emoji}</span>
+                        <span className="truncate flex-1 text-left">{a.label}</span>
+                        {e[a.key] && <span className="text-primary">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop : tableau */}
+        <div className="hidden md:block overflow-x-auto -mx-5 px-5">
           <table className="w-full text-xs border-separate border-spacing-0">
             <thead>
               <tr className="text-muted-foreground">
