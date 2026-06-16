@@ -243,7 +243,45 @@ export function FinancesView() {
               </div>
             }
           >
-            <div className="overflow-x-auto -mx-5 px-5">
+            {/* Mobile : cartes */}
+            <div className="md:hidden space-y-3">
+              {rows.map((l) => {
+                const e = l.reel - l.budget;
+                return (
+                  <div key={l.id} className="rounded-xl border border-border p-3" style={{ background: "var(--gradient-card)" }}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <TextInput value={l.emoji} onChange={(v) => upd(l.id, { emoji: v })} className="w-10 text-center !px-1 shrink-0" />
+                      <TextInput value={l.label} onChange={(v) => upd(l.id, { label: v })} />
+                      <button onClick={() => delLine(l.id)} title="Supprimer" className="grid place-items-center h-8 w-8 shrink-0 rounded-md border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="text-[11px] text-muted-foreground">
+                        Budget
+                        <NumberInput value={l.budget} onChange={(v) => upd(l.id, { budget: v })} className="mt-1" />
+                      </label>
+                      <label className="text-[11px] text-muted-foreground">
+                        Réel
+                        <NumberInput value={l.reel} onChange={(v) => upd(l.id, { reel: v })} className="mt-1" />
+                      </label>
+                    </div>
+                    <div className="flex items-center justify-between mt-2 text-xs">
+                      <span className="text-muted-foreground">Écart</span>
+                      <span className={`font-semibold tabular-nums ${e > 0 ? "text-destructive" : e < 0 ? "text-[color:var(--success)]" : "text-muted-foreground"}`}>
+                        {e > 0 ? "+" : ""}{fmtCFA(e)}
+                      </span>
+                    </div>
+                    <div className="mt-2">
+                      <TextInput value={l.notes || ""} onChange={(v) => upd(l.id, { notes: v })} placeholder="Notes…" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop : tableau */}
+            <div className="hidden md:block overflow-x-auto -mx-5 px-5">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-xs uppercase tracking-wider text-muted-foreground">
