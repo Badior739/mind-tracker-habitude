@@ -124,8 +124,10 @@ export function Shell({
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
             <div>
-              <div className="text-xs uppercase tracking-widest text-muted-foreground">{active.hint}</div>
-              <h1 className="text-xl lg:text-2xl font-semibold tracking-tight">{active.label}</h1>
+              <div className="text-[10px] lg:text-xs uppercase tracking-widest text-muted-foreground">
+                {todayGreeting()} · <span className="capitalize">{FR_DATE.format(new Date())}</span>
+              </div>
+              <h1 className="text-lg lg:text-2xl font-semibold tracking-tight">{active.label}</h1>
             </div>
             <div className="ml-auto flex items-center gap-2">
               <button onClick={() => setApp({ ...app, discreet: !app.discreet })}
