@@ -3,6 +3,7 @@ import { ACTIVITIES, MONTHS, daysInMonth, dayLabel, type DayEntry, type CustomAc
 import { useLocalStorage } from "@/lib/storage";
 import { Panel, TextInput, Toggle, ProgressBar } from "./ui";
 import { ChevronLeft, ChevronRight, Flame, Trophy, CalendarDays, Plus, Trash2, Settings as SettingsIcon } from "lucide-react";
+import { toast } from "sonner";
 
 type MonthData = Record<number, DayEntry>;
 
@@ -37,8 +38,18 @@ export function ActivitiesView() {
   const addActivity = () => {
     const k = `act-${Date.now()}`;
     setActivities([...activities, { key: k, label: "Nouvelle activité", emoji: "✨" }]);
+    toast.success("Activité ajoutée", { description: "Personnalise son nom et son emoji." });
   };
-  const delActivity = (k: string) => setActivities(activities.filter(a => a.key !== k));
+  const delActivity = (k: string) => {
+    const a = activities.find((x) => x.key === k);
+    if (!a) return;
+    if (!window.confirm(`Supprimer l'activité « ${a.label} » ?`)) return;
+    setActivities(activities.filter(x => x.key !== k));
+    toast("Activité supprimée", {
+      description: a.label,
+      action: { label: "Annuler", onClick: () => setActivities((cur) => [...cur, a]) },
+    });
+  };
   const updActivity = (k: string, patch: Partial<CustomActivity>) =>
     setActivities(activities.map(a => a.key === k ? { ...a, ...patch } : a));
 

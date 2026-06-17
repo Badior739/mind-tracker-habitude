@@ -4,6 +4,7 @@ import { useLocalStorage, fmtCFA, pct } from "@/lib/storage";
 import { Panel, NumberInput, TextInput, StatCard, ProgressBar } from "./ui";
 import { Wallet, TrendingDown, TrendingUp, PiggyBank, Target, ArrowUpRight, ArrowDownRight, Plus, Trash2 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip } from "recharts";
+import { toast } from "sonner";
 
 const PIE_COLORS = {
   essentiel: "hsl(var(--destructive))",
@@ -75,8 +76,18 @@ export function FinancesView() {
     const emojis: Record<FinanceCategory, string> = { revenus: "💰", essentiel: "🧾", investissement: "🚀", epargne: "🏦" };
     const id = `${category}-${Date.now()}`;
     setLines([...lines, { id, category, emoji: emojis[category], label: "Nouveau poste", budget: 0, reel: 0 }]);
+    toast.success("Nouvelle ligne ajoutée", { description: `Catégorie : ${category}` });
   };
-  const delLine = (id: string) => setLines(lines.filter(l => l.id !== id));
+  const delLine = (id: string) => {
+    const line = lines.find(l => l.id === id);
+    if (!line) return;
+    if (!window.confirm(`Supprimer « ${line.label} » ?`)) return;
+    setLines(lines.filter(l => l.id !== id));
+    toast("Ligne supprimée", {
+      description: line.label,
+      action: { label: "Annuler", onClick: () => setLines((cur) => [...cur, line]) },
+    });
+  };
 
   const totals = useMemo(() => {
     const t = (cat: FinanceCategory, k: "budget" | "reel") =>

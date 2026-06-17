@@ -1,11 +1,13 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, CalendarCheck, TrendingUp, Wallet, LineChart,
-  Rocket, BookOpen, Brain, Menu, X, Settings as SettingsIcon, Lock, Eye, EyeOff
+  Rocket, BookOpen, Brain, Menu, X, Settings as SettingsIcon, Lock, Eye, EyeOff,
+  ArrowUp, MoreHorizontal
 } from "lucide-react";
 import { useLocalStorage } from "@/lib/storage";
 import { DEFAULT_APP_PREFS, type AppPrefs } from "@/lib/prefs";
+import { Toaster } from "@/components/ui/sonner";
 
 export type TabKey =
   | "dashboard"
@@ -28,12 +30,31 @@ const TABS: { key: TabKey; label: string; icon: typeof Brain; hint: string }[] =
   { key: "settings",   label: "Paramètres",        icon: SettingsIcon,    hint: "PIN, rappels, exports" },
 ];
 
+const BOTTOM_TABS: TabKey[] = ["dashboard", "activities", "finances", "roadmap"];
+
+function todayGreeting() {
+  const h = new Date().getHours();
+  if (h < 6) return "Bonne nuit";
+  if (h < 12) return "Bonjour";
+  if (h < 18) return "Bon après-midi";
+  return "Bonsoir";
+}
+const FR_DATE = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+
 export function Shell({
   tab, onTab, children, onLock,
 }: { tab: TabKey; onTab: (t: TabKey) => void; children: ReactNode; onLock: () => void }) {
   const [open, setOpen] = useState(false);
   const active = TABS.find((t) => t.key === tab)!;
   const [app, setApp] = useLocalStorage<AppPrefs>("mt.app.v1", DEFAULT_APP_PREFS);
+  const [showTop, setShowTop] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 400);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -103,8 +124,10 @@ export function Shell({
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
             <div>
-              <div className="text-xs uppercase tracking-widest text-muted-foreground">{active.hint}</div>
-              <h1 className="text-xl lg:text-2xl font-semibold tracking-tight">{active.label}</h1>
+              <div className="text-[10px] lg:text-xs uppercase tracking-widest text-muted-foreground">
+                {todayGreeting()} · <span className="capitalize">{FR_DATE.format(new Date())}</span>
+              </div>
+              <h1 className="text-lg lg:text-2xl font-semibold tracking-tight">{active.label}</h1>
             </div>
             <div className="ml-auto flex items-center gap-2">
               <button onClick={() => setApp({ ...app, discreet: !app.discreet })}
@@ -119,12 +142,62 @@ export function Shell({
             </div>
           </div>
         </header>
-        <main className="px-4 lg:px-8 py-6 lg:py-10 max-w-[1400px]">{children}</main>
+        <main className="px-4 lg:px-8 py-6 lg:py-10 pb-24 lg:pb-10 max-w-[1400px]">{children}</main>
       </div>
 
       {open && (
         <div className="fixed inset-0 z-30 bg-background/60 lg:hidden" onClick={() => setOpen(false)} />
       )}
+
+      {/* 📱 Barre d'onglets mobile */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="grid grid-cols-5 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
+          {BOTTOM_TABS.map((k) => {
+            const t = TABS.find((x) => x.key === k)!;
+            const Icon = t.icon;
+            const isActive = tab === k;
+            return (
+              <button
+                key={k}
+                onClick={() => onTab(k)}
+                className={cn(
+                  "flex flex-col items-center gap-0.5 py-1.5 rounded-md text-[10px] transition-colors",
+                  isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                )}
+                aria-label={t.label}
+              >
+                <Icon className={cn("h-5 w-5", isActive && "drop-shadow-[0_0_6px_var(--primary)]")} />
+                <span className="truncate max-w-[64px]">{t.label.split(" ")[0]}</span>
+              </button>
+            );
+          })}
+          <button
+            onClick={() => setOpen(true)}
+            className={cn(
+              "flex flex-col items-center gap-0.5 py-1.5 rounded-md text-[10px] transition-colors",
+              !BOTTOM_TABS.includes(tab) ? "text-primary" : "text-muted-foreground hover:text-foreground"
+            )}
+            aria-label="Plus"
+          >
+            <MoreHorizontal className="h-5 w-5" />
+            <span>Plus</span>
+          </button>
+        </div>
+      </nav>
+
+      {/* ⬆️ Retour en haut */}
+      {showTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          aria-label="Retour en haut"
+          className="fixed right-4 bottom-20 lg:bottom-6 z-40 grid place-items-center h-11 w-11 rounded-full border border-border bg-card text-primary shadow-lg hover:scale-105 transition"
+          style={{ boxShadow: "var(--shadow-glow)" }}
+        >
+          <ArrowUp className="h-5 w-5" />
+        </button>
+      )}
+
+      <Toaster position="top-center" richColors closeButton />
     </div>
   );
 }
