@@ -3,11 +3,13 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, CalendarCheck, TrendingUp, Wallet, LineChart,
   Rocket, BookOpen, Brain, Menu, X, Settings as SettingsIcon, Lock, Eye, EyeOff,
-  ArrowUp, MoreHorizontal
+  ArrowUp, MoreHorizontal, Search, Command as CommandIcon
 } from "lucide-react";
 import { useLocalStorage } from "@/lib/storage";
 import { DEFAULT_APP_PREFS, type AppPrefs } from "@/lib/prefs";
 import { Toaster } from "@/components/ui/sonner";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 export type TabKey =
   | "dashboard"
@@ -48,13 +50,77 @@ export function Shell({
   const active = TABS.find((t) => t.key === tab)!;
   const [app, setApp] = useLocalStorage<AppPrefs>("mt.app.v1", DEFAULT_APP_PREFS);
   const [showTop, setShowTop] = useState(false);
+  const [palette, setPalette] = useState(false);
+  const [paletteQ, setPaletteQ] = useState("");
+  const [progress, setProgress] = useState(0);
+  const [anim, setAnim] = useState(0);
 
+  // 🎞️ Re-animate main on tab change
+  useEffect(() => { setAnim((n) => n + 1); }, [tab]);
+
+  // 📊 Scroll progress
   useEffect(() => {
-    const onScroll = () => setShowTop(window.scrollY > 400);
+    const onScroll = () => {
+      const h = document.documentElement;
+      const total = h.scrollHeight - h.clientHeight;
+      setProgress(total > 0 ? Math.min(100, (h.scrollTop / total) * 100) : 0);
+      setShowTop(window.scrollY > 400);
+    };
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // ⌨️ Raccourcis clavier
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault(); setPalette((v) => !v); return;
+      }
+      if (e.altKey && /^[1-8]$/.test(e.key)) {
+        e.preventDefault();
+        const idx = parseInt(e.key, 10) - 1;
+        if (TABS[idx]) onTab(TABS[idx].key);
+        return;
+      }
+      if (e.key === "?") { e.preventDefault(); toast("Raccourcis", { description: "Alt+1..8 onglets · Ctrl/⌘+K recherche · L verrouiller · D discret" }); }
+      if (e.key.toLowerCase() === "l" && !e.ctrlKey && !e.metaKey && !e.altKey) onLock();
+      if (e.key.toLowerCase() === "d" && !e.ctrlKey && !e.metaKey && !e.altKey) setApp({ ...app, discreet: !app.discreet });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [app, onTab, onLock, setApp]);
+
+  // 👉 Swipe entre onglets (mobile)
+  useEffect(() => {
+    let sx = 0, sy = 0, t0 = 0;
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0]; sx = t.clientX; sy = t.clientY; t0 = Date.now();
+    };
+    const onEnd = (e: TouchEvent) => {
+      const t = e.changedTouches[0];
+      const dx = t.clientX - sx, dy = t.clientY - sy, dt = Date.now() - t0;
+      if (dt > 500 || Math.abs(dx) < 70 || Math.abs(dy) > 60) return;
+      const i = BOTTOM_TABS.indexOf(tab as TabKey);
+      if (i < 0) return;
+      const ni = dx < 0 ? i + 1 : i - 1;
+      if (ni >= 0 && ni < BOTTOM_TABS.length) onTab(BOTTOM_TABS[ni]);
+    };
+    window.addEventListener("touchstart", onStart, { passive: true });
+    window.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", onStart);
+      window.removeEventListener("touchend", onEnd);
+    };
+  }, [tab, onTab]);
+
+  const filteredTabs = TABS.filter((t) =>
+    !paletteQ ||
+    t.label.toLowerCase().includes(paletteQ.toLowerCase()) ||
+    t.hint.toLowerCase().includes(paletteQ.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -115,6 +181,9 @@ export function Shell({
       {/* Main */}
       <div className="lg:pl-72">
         <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
+          {/* 📊 Barre de progression de défilement */}
+          <div className="absolute left-0 top-0 h-0.5 bg-primary transition-[width] duration-150"
+               style={{ width: `${progress}%`, boxShadow: "0 0 6px var(--primary)" }} />
           <div className="flex items-center gap-3 px-4 lg:px-8 py-4">
             <button
               className="lg:hidden grid place-items-center h-10 w-10 rounded-lg border border-border"
@@ -130,6 +199,14 @@ export function Shell({
               <h1 className="text-lg lg:text-2xl font-semibold tracking-tight">{active.label}</h1>
             </div>
             <div className="ml-auto flex items-center gap-2">
+              <button onClick={() => setPalette(true)} title="Recherche rapide (Ctrl+K)"
+                className="hidden sm:inline-flex items-center gap-2 h-10 px-3 rounded-lg border border-border hover:bg-secondary text-xs text-muted-foreground">
+                <Search className="h-4 w-4" />
+                <span>Aller à…</span>
+                <kbd className="ml-2 hidden md:inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[10px]">
+                  <CommandIcon className="h-3 w-3" />K
+                </kbd>
+              </button>
               <button onClick={() => setApp({ ...app, discreet: !app.discreet })}
                 title={app.discreet ? "Afficher les montants" : "Masquer les montants"}
                 className="grid place-items-center h-10 w-10 rounded-lg border border-border hover:bg-secondary">
@@ -142,7 +219,9 @@ export function Shell({
             </div>
           </div>
         </header>
-        <main className="px-4 lg:px-8 py-6 lg:py-10 pb-24 lg:pb-10 max-w-[1400px]">{children}</main>
+        <main key={anim} className="px-4 lg:px-8 py-6 lg:py-10 pb-24 lg:pb-10 max-w-[1400px] animate-in fade-in slide-in-from-bottom-2 duration-300">
+          {children}
+        </main>
       </div>
 
       {open && (
@@ -198,6 +277,55 @@ export function Shell({
       )}
 
       <Toaster position="top-center" richColors closeButton />
+
+      {/* 🔎 Palette de commandes */}
+      <Dialog open={palette} onOpenChange={(v) => { setPalette(v); if (!v) setPaletteQ(""); }}>
+        <DialogContent className="p-0 overflow-hidden max-w-md">
+          <DialogTitle className="sr-only">Recherche rapide</DialogTitle>
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <input
+              autoFocus
+              value={paletteQ}
+              onChange={(e) => setPaletteQ(e.target.value)}
+              placeholder="Rechercher un onglet…"
+              className="flex-1 bg-transparent outline-none text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && filteredTabs[0]) {
+                  onTab(filteredTabs[0].key); setPalette(false); setPaletteQ("");
+                }
+              }}
+            />
+          </div>
+          <div className="max-h-80 overflow-y-auto py-1">
+            {filteredTabs.length === 0 && (
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground">Aucun résultat</div>
+            )}
+            {filteredTabs.map((t, i) => {
+              const Icon = t.icon;
+              return (
+                <button key={t.key}
+                  onClick={() => { onTab(t.key); setPalette(false); setPaletteQ(""); }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-secondary",
+                    t.key === tab && "bg-secondary/60"
+                  )}>
+                  <Icon className="h-4 w-4 text-primary" />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{t.label}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{t.hint}</div>
+                  </div>
+                  <kbd className="text-[10px] text-muted-foreground border border-border rounded px-1.5 py-0.5">Alt+{i + 1}</kbd>
+                </button>
+              );
+            })}
+          </div>
+          <div className="px-4 py-2 border-t border-border text-[10px] text-muted-foreground flex items-center justify-between">
+            <span>↵ Ouvrir</span>
+            <span>Alt+1..8 · L verrouiller · D discret · ? aide</span>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
