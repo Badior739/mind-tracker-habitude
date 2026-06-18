@@ -3,6 +3,7 @@ import { Panel } from "./ui";
 import { useLocalStorage } from "@/lib/storage";
 import { DEFAULT_APP_PREFS, DEFAULT_NOTIFS, type AppPrefs, type NotifPrefs } from "@/lib/prefs";
 import { canNotify, requestNotifPermission, notify } from "@/lib/notifications";
+import { toast } from "sonner";
 import { clearPin, pinIsSet } from "@/lib/pin";
 import { exportActivitiesCSV, exportFinanceCSV, printToPDF } from "@/lib/export";
 import { Bell, Lock, EyeOff, Download, Printer, ShieldCheck, RotateCcw } from "lucide-react";
@@ -44,7 +45,14 @@ export function SettingsView({ onChangePin }: { onChangePin: () => void }) {
     if (v) {
       const p = await requestNotifPermission();
       setPerm(p);
-      if (p === "granted") { setNotifs({ ...notifs, enabled: true }); notify("Notifications activées", "Vous recevrez vos rappels Mind Tracker."); }
+      if (p === "granted") {
+        setNotifs({ ...notifs, enabled: true });
+        notify("Notifications activées", "Vous recevrez vos rappels Mind Tracker.");
+      } else if (p === "denied") {
+        toast.error("Notifications bloquées", { description: "Autorisez-les dans les réglages du navigateur pour ce site." });
+      } else {
+        toast("Permission refusée", { description: "Réessayez et acceptez la demande du navigateur." });
+      }
     } else setNotifs({ ...notifs, enabled: false });
   }
 
@@ -103,7 +111,16 @@ export function SettingsView({ onChangePin }: { onChangePin: () => void }) {
           <Switch on={notifs.scoreCongrats} onChange={(v) => setNotifs({ ...notifs, scoreCongrats: v })} />
         </Row>
         <div className="pt-3 flex gap-2 flex-wrap">
-          <button onClick={() => notify("Notification de test", "Si vous lisez ceci, tout fonctionne !")}
+          <button onClick={async () => {
+              if (!canNotify()) {
+                const p = await requestNotifPermission();
+                setPerm(p);
+                if (p !== "granted") {
+                  toast.error("Impossible d'envoyer une notification système", { description: "Affichage d'un message dans l'app à la place." });
+                }
+              }
+              notify("Notification de test ✅", "Si vous lisez ceci, tout fonctionne !");
+            }}
             className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-md border border-border hover:bg-secondary">
             Tester une notification
           </button>
