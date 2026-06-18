@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ACTIVITIES, MONTHS, daysInMonth, dayLabel, type DayEntry, type CustomActivity } from "@/lib/mind-data";
 import { useLocalStorage } from "@/lib/storage";
 import { Panel, TextInput, Toggle, ProgressBar } from "./ui";
@@ -37,7 +37,7 @@ export function ActivitiesView() {
   const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
   const [selectedDay, setSelectedDay] = useState<number | null>(isCurrentMonth ? today.getDate() : null);
   // Recalc sélection quand on change de mois
-  useMemo(() => {
+  useEffect(() => {
     setSelectedDay(isCurrentMonth ? today.getDate() : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year, month]);
