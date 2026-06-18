@@ -34,6 +34,13 @@ export function ActivitiesView() {
     ACTIVITIES.map((a) => ({ key: a.key, label: a.label, emoji: a.emoji }))
   );
   const [showConfig, setShowConfig] = useState(false);
+  const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
+  const [selectedDay, setSelectedDay] = useState<number | null>(isCurrentMonth ? today.getDate() : null);
+  // Recalc sélection quand on change de mois
+  useMemo(() => {
+    setSelectedDay(isCurrentMonth ? today.getDate() : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [year, month]);
 
   const addActivity = () => {
     const k = `act-${Date.now()}`;
@@ -196,18 +203,77 @@ export function ActivitiesView() {
               const color = getScoreColor(score, maxScore);
               const tc = getScoreTextColor(score, maxScore);
               const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+              const isSelected = d === selectedDay;
               return (
-                <div
+                <button
                   key={d}
-                  className={`aspect-square rounded-lg flex flex-col items-center justify-center gap-0.5 transition-all hover:scale-105 cursor-pointer ${color} ${isToday ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : ""}`}
+                  type="button"
+                  onClick={() => setSelectedDay(d)}
+                  className={`aspect-square rounded-lg flex flex-col items-center justify-center gap-0.5 transition-all hover:scale-105 cursor-pointer ${color} ${isToday ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : ""} ${isSelected ? "outline outline-2 outline-accent scale-105" : ""}`}
                   title={`${dayLabel(year, month, d)} — ${score}/${maxScore}`}
                 >
                   <span className="text-[10px] font-medium text-foreground/80">{d}</span>
                   <span className={`text-[10px] font-bold ${tc}`}>{score}</span>
-                </div>
+                </button>
               );
             })}
           </div>
+
+          {/* Détail du jour sélectionné */}
+          {selectedDay && (() => {
+            const d = selectedDay;
+            const e = data[d] || {};
+            const score = scores[d - 1];
+            const p = (score / maxScore) * 100;
+            const isToday = d === today.getDate() && isCurrentMonth;
+            return (
+              <div className="mt-4 rounded-xl border border-accent/40 p-4" style={{ background: "var(--gradient-card)" }}>
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold">{dayLabel(year, month, d)}</span>
+                    {isToday && <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/30">Aujourd'hui</span>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-bold ${getScoreTextColor(score, maxScore)}`}>{score}/{maxScore}</span>
+                    <span className="text-[10px] text-muted-foreground">{p.toFixed(0)}%</span>
+                    <button onClick={() => setSelectedDay(null)} className="ml-2 text-[11px] text-muted-foreground hover:text-foreground">✕</button>
+                  </div>
+                </div>
+                <ProgressBar value={p} tone={p >= 75 ? "success" : p >= 50 ? "primary" : p >= 25 ? "warning" : "destructive"} />
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <label className="text-[11px] text-muted-foreground">
+                    ⏰ Réveil
+                    <TextInput value={e.reveil || ""} onChange={(v) => setDay(d, { reveil: v })} placeholder="06:30" className="mt-1" />
+                  </label>
+                  <label className="text-[11px] text-muted-foreground">
+                    📝 Notes
+                    <TextInput value={e.notes || ""} onChange={(v) => setDay(d, { notes: v })} placeholder="…" className="mt-1" />
+                  </label>
+                </div>
+                <div className="mt-3">
+                  <div className="text-[11px] text-muted-foreground mb-1.5">Activités</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                    {activities.map((a) => (
+                      <button
+                        key={a.key}
+                        type="button"
+                        onClick={() => setDay(d, { [a.key]: !e[a.key] } as Partial<DayEntry>)}
+                        className={`flex items-center gap-2 px-2 py-1.5 rounded-md border text-xs transition ${
+                          e[a.key]
+                            ? "bg-primary/15 border-primary/50 text-primary"
+                            : "border-border text-muted-foreground hover:bg-secondary"
+                        }`}
+                      >
+                        <span className="text-sm">{a.emoji}</span>
+                        <span className="truncate flex-1 text-left">{a.label}</span>
+                        {e[a.key] && <span className="text-primary">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Stats rapides + streak */}
