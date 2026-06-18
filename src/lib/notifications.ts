@@ -18,10 +18,26 @@ export function canNotify() {
 }
 
 export function notify(title: string, body: string, tag?: string) {
-  if (!canNotify()) return;
+  // Fallback toast pour les environnements sans Notification API (iOS Safari hors PWA, etc.)
+  const fallback = () => {
+    try {
+      // import dynamique pour éviter un cycle avec sonner côté SSR
+      import("sonner").then(({ toast }) => toast(title, { description: body }));
+    } catch {}
+  };
+  if (!canNotify()) { fallback(); return; }
   try {
-    new Notification(title, { body, tag, icon: "/icon-512.png", badge: "/icon-512.png" });
-  } catch {}
+    // Service worker requis pour mobile Android/Chrome — fallback sinon
+    if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then((reg) =>
+        reg.showNotification(title, { body, tag, icon: "/icon-512.png", badge: "/icon-512.png" })
+      ).catch(() => { new Notification(title, { body, tag }); });
+    } else {
+      new Notification(title, { body, tag, icon: "/icon-512.png", badge: "/icon-512.png" });
+    }
+  } catch {
+    fallback();
+  }
 }
 
 // --- Throttle helpers (pour éviter le spam) ---
