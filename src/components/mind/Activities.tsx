@@ -36,6 +36,13 @@ export function ActivitiesView() {
   const [showConfig, setShowConfig] = useState(false);
   const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
   const [selectedDay, setSelectedDay] = useState<number | null>(isCurrentMonth ? today.getDate() : null);
+  const [lastSaved, setLastSaved] = useState<number | null>(null);
+  // marque "Enregistré automatiquement ✓" à chaque modification
+  useEffect(() => {
+    setLastSaved(Date.now());
+    const t = setTimeout(() => setLastSaved(null), 1800);
+    return () => clearTimeout(t);
+  }, [data]);
   // Recalc sélection quand on change de mois
   useEffect(() => {
     setSelectedDay(isCurrentMonth ? today.getDate() : null);
@@ -270,6 +277,22 @@ export function ActivitiesView() {
                       </button>
                     ))}
                   </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-2 pt-2 border-t border-border/60">
+                  <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1.5">
+                    {lastSaved ? (
+                      <span className="text-[color:var(--success)]">✓ Enregistré automatiquement</span>
+                    ) : (
+                      <span>💾 Modifications sauvegardées en direct</span>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => { setData({ ...data }); toast.success("Journée enregistrée", { description: dayLabel(year, month, d) }); }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary/15 text-primary border border-primary/30 text-xs hover:bg-primary/25 transition"
+                  >
+                    💾 Enregistrer
+                  </button>
                 </div>
               </div>
             );
