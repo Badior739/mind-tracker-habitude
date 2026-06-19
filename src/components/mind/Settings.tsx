@@ -93,37 +93,89 @@ export function SettingsView({ onChangePin }: { onChangePin: () => void }) {
         <Row label="Activer les notifications" hint="Autorise l'envoi de rappels depuis Mind Tracker">
           <Switch on={notifs.enabled && perm === "granted"} onChange={toggleEnable} />
         </Row>
-        <Row label="Rappel quotidien des activités" hint="À l'heure choisie si toutes les activités ne sont pas cochées">
-          <Switch on={notifs.dailyActivity} onChange={(v) => setNotifs({ ...notifs, dailyActivity: v })} />
+
+        <div className="mt-4 mb-1 text-xs font-semibold text-primary uppercase tracking-wide">🎯 Activités</div>
+        <Row label="Rappel pour les activités" hint="Si toutes les activités ne sont pas cochées">
+          <Switch on={!!notifs.activitiesEnabled} onChange={(v) => setNotifs({ ...notifs, activitiesEnabled: v })} />
         </Row>
-        <Row label="Heure du rappel quotidien">
-          <input type="time" value={notifs.dailyTime}
-            onChange={(e) => setNotifs({ ...notifs, dailyTime: e.target.value })}
+        <Row label="Fréquence">
+          <select value={notifs.activitiesFrequency}
+            onChange={(e) => setNotifs({ ...notifs, activitiesFrequency: e.target.value as "daily" | "weekly" })}
+            className="bg-input/60 border border-border rounded-md px-2 py-1.5 text-sm">
+            <option value="daily">Quotidien</option>
+            <option value="weekly">Hebdomadaire (dimanche)</option>
+          </select>
+        </Row>
+        <Row label="Heure du rappel">
+          <input type="time" value={notifs.activitiesTime}
+            onChange={(e) => setNotifs({ ...notifs, activitiesTime: e.target.value })}
             className="bg-input/60 border border-border rounded-md px-2 py-1.5 text-sm" />
         </Row>
-        <Row label="Bilan financier hebdo" hint="Dimanche soir à partir de 19h">
-          <Switch on={notifs.weeklyFinance} onChange={(v) => setNotifs({ ...notifs, weeklyFinance: v })} />
+
+        <div className="mt-4 mb-1 text-xs font-semibold text-accent uppercase tracking-wide">💰 Finances</div>
+        <Row label="Rappel financier" hint="Bilan / vérification des dépenses">
+          <Switch on={!!notifs.financesEnabled} onChange={(v) => setNotifs({ ...notifs, financesEnabled: v })} />
         </Row>
+        <Row label="Fréquence">
+          <select value={notifs.financesFrequency}
+            onChange={(e) => setNotifs({ ...notifs, financesFrequency: e.target.value as "daily" | "weekly" })}
+            className="bg-input/60 border border-border rounded-md px-2 py-1.5 text-sm">
+            <option value="daily">Quotidien</option>
+            <option value="weekly">Hebdomadaire (dimanche)</option>
+          </select>
+        </Row>
+        <Row label="Heure du rappel">
+          <input type="time" value={notifs.financesTime}
+            onChange={(e) => setNotifs({ ...notifs, financesTime: e.target.value })}
+            className="bg-input/60 border border-border rounded-md px-2 py-1.5 text-sm" />
+        </Row>
+
+        <div className="mt-4 mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">🌍 Fuseau horaire</div>
+        <Row label="Fuseau" hint={`Détecté : ${Intl.DateTimeFormat().resolvedOptions().timeZone}`}>
+          <select value={notifs.timezone}
+            onChange={(e) => setNotifs({ ...notifs, timezone: e.target.value })}
+            className="bg-input/60 border border-border rounded-md px-2 py-1.5 text-sm max-w-[200px]">
+            {[
+              "Africa/Abidjan","Africa/Dakar","Africa/Casablanca","Africa/Algiers","Africa/Tunis",
+              "Africa/Lagos","Africa/Douala","Africa/Kinshasa","Africa/Nairobi","Africa/Johannesburg",
+              "Europe/Paris","Europe/London","Europe/Madrid","Europe/Rome","Europe/Brussels",
+              "America/Montreal","America/New_York","America/Los_Angeles","Asia/Dubai","Asia/Tokyo",
+            ].map((tz) => <option key={tz} value={tz}>{tz}</option>)}
+          </select>
+        </Row>
+
+        <div className="mt-4 mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">🔔 Autres</div>
         <Row label="Alertes de dépassement budget" hint="Quand une dépense dépasse le budget prévu">
           <Switch on={notifs.budgetAlerts} onChange={(v) => setNotifs({ ...notifs, budgetAlerts: v })} />
         </Row>
         <Row label="Félicitations score élevé" hint="Notification quand vous atteignez 9/11 ou plus">
           <Switch on={notifs.scoreCongrats} onChange={(v) => setNotifs({ ...notifs, scoreCongrats: v })} />
         </Row>
-        <div className="pt-3 flex gap-2 flex-wrap">
+        <div className="pt-4 flex flex-col gap-2">
           <button onClick={async () => {
-              if (!canNotify()) {
-                const p = await requestNotifPermission();
-                setPerm(p);
-                if (p !== "granted") {
-                  toast.error("Impossible d'envoyer une notification système", { description: "Affichage d'un message dans l'app à la place." });
-                }
+              const p = canNotify() ? "granted" : await requestNotifPermission();
+              setPerm(p);
+              if (p === "granted") {
+                notify("Notification de test ✅", "Tout fonctionne ! Vous recevrez bien vos rappels.");
+                toast.success("Permission accordée", { description: "Une notification de test a été envoyée." });
+              } else if (p === "denied") {
+                toast.error("Permission bloquée par le navigateur", {
+                  description: "Allez dans les réglages du site pour réactiver les notifications.",
+                });
+              } else {
+                toast("Permission refusée", { description: "Réessayez et acceptez la demande du navigateur." });
               }
-              notify("Notification de test ✅", "Si vous lisez ceci, tout fonctionne !");
             }}
-            className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-md border border-border hover:bg-secondary">
-            Tester une notification
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition">
+            <Bell className="h-4 w-4"/>Tester maintenant
           </button>
+          <div className={`text-xs px-3 py-2 rounded-md border ${
+            perm === "granted" ? "border-[color:var(--success)]/40 bg-[color:var(--success)]/10 text-[color:var(--success)]"
+            : perm === "denied" ? "border-destructive/40 bg-destructive/10 text-destructive"
+            : "border-border bg-secondary/30 text-muted-foreground"
+          }`}>
+            État : {perm === "granted" ? "✓ Notifications autorisées" : perm === "denied" ? "✗ Notifications bloquées" : "⚠ Permission non demandée"}
+          </div>
         </div>
         <p className="text-[11px] text-muted-foreground mt-3">
           Astuce : pour recevoir les rappels même quand l'app est fermée sur mobile, ajoutez Mind Tracker à votre écran d'accueil (PWA).
