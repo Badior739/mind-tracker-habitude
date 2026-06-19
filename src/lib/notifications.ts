@@ -83,19 +83,21 @@ export function runNotificationChecks(prefs: NotifPrefs) {
   const m = now.getMonth();
   const d = now.getDate();
 
-  // 1. Rappel quotidien activités
-  if (prefs.dailyActivity) {
-    const [hh, mm] = prefs.dailyTime.split(":").map(Number);
+  // 1. Rappel activités (quotidien ou hebdo le dimanche)
+  if (prefs.activitiesEnabled) {
+    const [hh, mm] = (prefs.activitiesTime || "21:00").split(":").map(Number);
     const todayMin = now.getHours() * 60 + now.getMinutes();
     const targetMin = (hh || 21) * 60 + (mm || 0);
-    if (todayMin >= targetMin) {
+    const dueByFreq = prefs.activitiesFrequency === "weekly" ? now.getDay() === 0 : true;
+    if (dueByFreq && todayMin >= targetMin) {
       const data = readActMonth(y, m)[d] || {};
       const score = ACTIVITIES.reduce((s, a) => s + (data[a.key] ? 1 : 0), 0);
       if (score < ACTIVITIES.length) {
-        if (markFiredOnce(`daily:${todayKey()}`, 12 * 60 * 60_000)) {
+        const tag = prefs.activitiesFrequency === "weekly" ? `weekly-act:${y}-${weekNum(now)}` : `daily-act:${todayKey()}`;
+        if (markFiredOnce(tag, 12 * 60 * 60_000)) {
           notify(
-            "Rappel Mind Tracker",
-            `N'oubliez pas de cocher vos activités du jour (${score}/11).`,
+            "Rappel Activités",
+            `Pensez à cocher vos activités (${score}/${ACTIVITIES.length}).`,
             "mt-daily"
           );
         }
@@ -103,14 +105,21 @@ export function runNotificationChecks(prefs: NotifPrefs) {
     }
   }
 
-  // 2. Rappel hebdo finance — dimanche après 19h
-  if (prefs.weeklyFinance && now.getDay() === 0 && now.getHours() >= 19) {
-    if (markFiredOnce(`weekly:${y}-${weekNum(now)}`, 24 * 60 * 60_000)) {
-      notify(
-        "Bilan financier hebdo",
-        "C'est l'heure de faire le point sur vos finances cette semaine.",
-        "mt-weekly"
-      );
+  // 2. Rappel finances (quotidien ou hebdo)
+  if (prefs.financesEnabled) {
+    const [hh, mm] = (prefs.financesTime || "19:00").split(":").map(Number);
+    const todayMin = now.getHours() * 60 + now.getMinutes();
+    const targetMin = (hh || 19) * 60 + (mm || 0);
+    const dueByFreq = prefs.financesFrequency === "weekly" ? now.getDay() === 0 : true;
+    if (dueByFreq && todayMin >= targetMin) {
+      const tag = prefs.financesFrequency === "weekly" ? `weekly-fin:${y}-${weekNum(now)}` : `daily-fin:${todayKey()}`;
+      if (markFiredOnce(tag, 12 * 60 * 60_000)) {
+        notify(
+          prefs.financesFrequency === "weekly" ? "Bilan financier hebdo" : "Point finances du jour",
+          "C'est le moment de faire le point sur vos finances.",
+          "mt-weekly"
+        );
+      }
     }
   }
 
