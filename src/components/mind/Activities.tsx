@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ACTIVITIES, MONTHS, daysInMonth, dayLabel, type DayEntry, type CustomActivity } from "@/lib/mind-data";
 import { useLocalStorage } from "@/lib/storage";
-import { Panel, TextInput, Toggle, ProgressBar } from "./ui";
+import { Panel, TextInput, ProgressBar } from "./ui";
 import { ChevronLeft, ChevronRight, Flame, Trophy, CalendarDays, Plus, Trash2, Settings as SettingsIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -353,111 +353,11 @@ export function ActivitiesView() {
           </div>
         )}
 
-        {/* Tableau détaillé */}
-        {/* Mobile : cartes par jour */}
-        <div className="md:hidden space-y-3">
-          {days.map((d, i) => {
-            const e = data[d] || {};
-            const score = scores[i];
-            const p = (score / maxScore) * 100;
-            return (
-              <div key={d} className="rounded-xl border border-border p-3" style={{ background: "var(--gradient-card)" }}>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="font-semibold text-sm">{dayLabel(year, month, d)}</div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm font-bold ${getScoreTextColor(score, maxScore)}`}>{score}/{maxScore}</span>
-                    <span className="text-[10px] text-muted-foreground">{p.toFixed(0)}%</span>
-                  </div>
-                </div>
-                <ProgressBar value={p} tone={p >= 75 ? "success" : p >= 50 ? "primary" : p >= 25 ? "warning" : "destructive"} />
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <label className="text-[11px] text-muted-foreground">
-                    ⏰ Réveil
-                    <TextInput value={e.reveil || ""} onChange={(v) => setDay(d, { reveil: v })} placeholder="06:30" className="mt-1" />
-                  </label>
-                  <label className="text-[11px] text-muted-foreground">
-                    📝 Notes
-                    <TextInput value={e.notes || ""} onChange={(v) => setDay(d, { notes: v })} placeholder="…" className="mt-1" />
-                  </label>
-                </div>
-                <div className="mt-3">
-                  <div className="text-[11px] text-muted-foreground mb-1.5">Activités</div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {activities.map((a) => (
-                      <button
-                        key={a.key}
-                        type="button"
-                        onClick={() => setDay(d, { [a.key]: !e[a.key] } as Partial<DayEntry>)}
-                        className={`flex items-center gap-2 px-2 py-1.5 rounded-md border text-xs transition ${
-                          e[a.key]
-                            ? "bg-primary/15 border-primary/50 text-primary"
-                            : "border-border text-muted-foreground"
-                        }`}
-                      >
-                        <span className="text-sm">{a.emoji}</span>
-                        <span className="truncate flex-1 text-left">{a.label}</span>
-                        {e[a.key] && <span className="text-primary">✓</span>}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Desktop : tableau */}
-        <div className="hidden md:block overflow-x-auto -mx-5 px-5">
-          <table className="w-full text-xs border-separate border-spacing-0">
-            <thead>
-              <tr className="text-muted-foreground">
-                <th className="sticky left-0 bg-card text-left font-medium py-2 pr-2 min-w-[110px] z-10">📅 Jour</th>
-                <th className="font-medium py-2 px-2 min-w-[70px]">⏰ Réveil</th>
-                {activities.map((a) => (
-                  <th key={a.key} className="font-medium py-2 px-1 text-center min-w-[44px]" title={a.label}>
-                    <div className="text-base leading-none">{a.emoji}</div>
-                    <div className="text-[10px] mt-1 text-muted-foreground">{a.label.split(" ")[0]}</div>
-                  </th>
-                ))}
-                <th className="font-medium py-2 px-2 text-center">⭐ /{maxScore}</th>
-                <th className="font-medium py-2 px-2 text-center">📊 %</th>
-                <th className="font-medium py-2 px-2 min-w-[180px]">📝 Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {days.map((d, i) => {
-                const e = data[d] || {};
-                const score = scores[i];
-                const p = (score / maxScore) * 100;
-                return (
-                  <tr key={d} className="border-t border-border">
-                    <td className="sticky left-0 bg-card py-1.5 pr-2 font-medium text-foreground z-10">
-                      {dayLabel(year, month, d)}
-                    </td>
-                    <td className="py-1.5 px-1">
-                      <TextInput value={e.reveil || ""} onChange={(v) => setDay(d, { reveil: v })} placeholder="06:30" className="text-center" />
-                    </td>
-                    {activities.map((a) => (
-                      <td key={a.key} className="py-1.5 px-1 text-center">
-                        <div className="flex justify-center">
-                          <Toggle on={!!e[a.key]} onChange={(v) => setDay(d, { [a.key]: v } as Partial<DayEntry>)} />
-                        </div>
-                      </td>
-                    ))}
-                    <td className="py-1.5 px-2 text-center font-semibold text-primary">{score}</td>
-                    <td className="py-1.5 px-2 text-center w-[90px]">
-                      <div className="text-[11px] text-muted-foreground mb-1">{p.toFixed(0)}%</div>
-                      <ProgressBar value={p} tone={p >= 75 ? "success" : p >= 50 ? "primary" : p >= 25 ? "warning" : "destructive"} />
-                    </td>
-                    <td className="py-1.5 px-1">
-                      <TextInput value={e.notes || ""} onChange={(v) => setDay(d, { notes: v })} placeholder="…" />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        {!selectedDay && (
+          <div className="text-center text-xs text-muted-foreground py-4 border border-dashed border-border rounded-xl">
+            👆 Cliquez sur une date du calendrier pour voir et renseigner les activités de ce jour.
+          </div>
+        )}
       </Panel>
     </div>
   );
