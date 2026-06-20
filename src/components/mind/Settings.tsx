@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Panel } from "./ui";
 import { useLocalStorage } from "@/lib/storage";
 import { DEFAULT_APP_PREFS, DEFAULT_NOTIFS, type AppPrefs, type NotifPrefs } from "@/lib/prefs";
@@ -6,7 +6,8 @@ import { canNotify, requestNotifPermission, notify } from "@/lib/notifications";
 import { toast } from "sonner";
 import { clearPin, pinIsSet } from "@/lib/pin";
 import { exportActivitiesCSV, exportFinanceCSV, printToPDF } from "@/lib/export";
-import { Bell, Lock, EyeOff, Download, Printer, ShieldCheck, RotateCcw } from "lucide-react";
+import { Bell, Lock, EyeOff, Download, Printer, ShieldCheck, RotateCcw, Upload, Save, RefreshCw } from "lucide-react";
+import { exportBackup, importBackup } from "@/lib/backup";
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -38,6 +39,8 @@ export function SettingsView({ onChangePin }: { onChangePin: () => void }) {
   const today = new Date();
   const [exYear, setExYear] = useState(today.getFullYear());
   const [exMonth, setExMonth] = useState(today.getMonth());
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [importMode, setImportMode] = useState<"merge" | "replace">("replace");
 
   useEffect(() => { setPerm(canNotify() ? "granted" : (("Notification" in window) ? Notification.permission : "denied")); }, [notifs.enabled]);
 
@@ -220,6 +223,53 @@ export function SettingsView({ onChangePin }: { onChangePin: () => void }) {
         <p className="text-[11px] text-muted-foreground mt-3">
           Les CSV s'ouvrent directement dans Excel, Google Sheets ou LibreOffice.
         </p>
+      </Panel>
+
+      <Panel title={<span className="inline-flex items-center gap-2"><Save className="h-4 w-4 text-primary"/>Sauvegarde & Restauration (multi-appareils)</span>}>
+        <p className="text-xs text-muted-foreground mb-3">
+          Exportez un fichier <code className="px-1 bg-secondary rounded">.json</code> contenant <strong>toutes vos données</strong>
+          (activités, finances, paramètres). Importez-le ensuite sur un autre appareil pour retrouver exactement le même contenu.
+        </p>
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button onClick={exportBackup}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90">
+            <Download className="h-4 w-4"/>Exporter toutes mes données
+          </button>
+          <button onClick={() => fileRef.current?.click()}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-md border border-border hover:bg-secondary">
+            <Upload className="h-4 w-4"/>Restaurer depuis un fichier
+          </button>
+          <input ref={fileRef} type="file" accept="application/json,.json" className="hidden"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (!f) return;
+              const ok = confirm(
+                importMode === "replace"
+                  ? "Restaurer ce fichier ?\n\n⚠️ Toutes les données actuelles seront REMPLACÉES."
+                  : "Fusionner ce fichier avec les données actuelles ?"
+              );
+              if (!ok) return;
+              try {
+                const { count } = await importBackup(f, importMode);
+                toast.success("Restauration réussie", { description: `${count} éléments restaurés. Rechargement…` });
+                setTimeout(() => window.location.reload(), 900);
+              } catch (err) {
+                toast.error("Échec de la restauration", { description: (err as Error).message });
+              }
+            }}/>
+        </div>
+        <Row label="Mode de restauration" hint={importMode === "replace" ? "Efface les données actuelles avant import." : "Conserve l'existant et ajoute/écrase les clés du fichier."}>
+          <select value={importMode} onChange={(e) => setImportMode(e.target.value as "merge" | "replace")}
+            className="bg-input/60 border border-border rounded-md px-2 py-1.5 text-sm">
+            <option value="replace">Remplacer tout</option>
+            <option value="merge">Fusionner</option>
+          </select>
+        </Row>
+        <div className="mt-3 p-3 rounded-md border border-border bg-secondary/30 text-[11px] text-muted-foreground">
+          <strong className="text-foreground">Astuce multi-appareils :</strong> exportez depuis l'appareil source, envoyez-vous le fichier
+          (e-mail, cloud, WhatsApp…), puis importez-le sur l'autre appareil. Pour une synchronisation automatique entre appareils, activez Lovable Cloud.
+        </div>
       </Panel>
     </div>
   );
