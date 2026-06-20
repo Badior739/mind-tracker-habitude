@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Panel } from "./ui";
 import { useLocalStorage } from "@/lib/storage";
 import { DEFAULT_APP_PREFS, DEFAULT_NOTIFS, type AppPrefs, type NotifPrefs } from "@/lib/prefs";
@@ -8,7 +8,6 @@ import { clearPin, pinIsSet } from "@/lib/pin";
 import { exportActivitiesCSV, exportFinanceCSV, printToPDF } from "@/lib/export";
 import { Bell, Lock, EyeOff, Download, Printer, ShieldCheck, RotateCcw, Upload, Save, RefreshCw } from "lucide-react";
 import { exportBackup, importBackup } from "@/lib/backup";
-import { useRef } from "react";
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
