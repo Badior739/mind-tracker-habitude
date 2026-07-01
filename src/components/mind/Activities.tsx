@@ -170,10 +170,10 @@ export function ActivitiesView() {
 
       <Panel
         title={
-          <div className="flex items-center gap-3">
-            <button onClick={() => shift(-1)} className="grid place-items-center h-8 w-8 rounded-md border border-border hover:bg-secondary"><ChevronLeft className="h-4 w-4" /></button>
-            <span className="text-base">{MONTHS[month]} {year}</span>
-            <button onClick={() => shift(1)} className="grid place-items-center h-8 w-8 rounded-md border border-border hover:bg-secondary"><ChevronRight className="h-4 w-4" /></button>
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-primary" />
+            <span className="text-base capitalize">{MONTHS[month]} {year}</span>
+            <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/30">Mois en cours</span>
           </div>
         }
         action={
@@ -183,6 +183,10 @@ export function ActivitiesView() {
           </div>
         }
       >
+        <div className="mb-4 rounded-lg border border-border/60 bg-secondary/30 px-3 py-2 text-[11px] text-muted-foreground flex items-start gap-2">
+          <span>🔄</span>
+          <span>Chaque nouveau mois, un calendrier vierge est créé. Les mois passés restent consultables dans <b className="text-foreground">Synthèse annuelle</b> (12 mois).</span>
+        </div>
         {/* Calendrier visuel mensuel */}
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
