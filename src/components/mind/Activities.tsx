@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ACTIVITIES, MONTHS, daysInMonth, dayLabel, type DayEntry, type CustomActivity } from "@/lib/mind-data";
 import { useLocalStorage } from "@/lib/storage";
 import { Panel, TextInput, ProgressBar } from "./ui";
-import { ChevronLeft, ChevronRight, Flame, Trophy, CalendarDays, Plus, Trash2, Settings as SettingsIcon } from "lucide-react";
+import { Flame, Trophy, CalendarDays, Plus, Trash2, Settings as SettingsIcon } from "lucide-react";
 import { toast } from "sonner";
 
 type MonthData = Record<number, DayEntry>;
@@ -25,8 +25,11 @@ function getScoreTextColor(score: number, max: number) {
 
 export function ActivitiesView() {
   const today = new Date();
-  const [year, setYear] = useLocalStorage("mt.act.year", today.getFullYear());
-  const [month, setMonth] = useLocalStorage("mt.act.month", today.getMonth());
+  // 🔒 Le suivi quotidien est toujours verrouillé sur le mois en cours.
+  // Les données des mois précédents restent conservées et consultables
+  // dans l'onglet « Synthèse annuelle » (12 mois).
+  const year = today.getFullYear();
+  const month = today.getMonth();
   const key = `mt.act.${year}-${month}`;
   const [data, setData] = useLocalStorage<MonthData>(key, {});
   const [activities, setActivities] = useLocalStorage<CustomActivity[]>(
@@ -34,8 +37,8 @@ export function ActivitiesView() {
     ACTIVITIES.map((a) => ({ key: a.key, label: a.label, emoji: a.emoji }))
   );
   const [showConfig, setShowConfig] = useState(false);
-  const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
-  const [selectedDay, setSelectedDay] = useState<number | null>(isCurrentMonth ? today.getDate() : null);
+  const isCurrentMonth = true;
+  const [selectedDay, setSelectedDay] = useState<number | null>(today.getDate());
   const [lastSaved, setLastSaved] = useState<number | null>(null);
   // marque "Enregistré automatiquement ✓" à chaque modification
   useEffect(() => {
@@ -43,11 +46,6 @@ export function ActivitiesView() {
     const t = setTimeout(() => setLastSaved(null), 1800);
     return () => clearTimeout(t);
   }, [data]);
-  // Recalc sélection quand on change de mois
-  useEffect(() => {
-    setSelectedDay(isCurrentMonth ? today.getDate() : null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [year, month]);
 
   const addActivity = () => {
     const k = `act-${Date.now()}`;
@@ -128,13 +126,6 @@ export function ActivitiesView() {
     return weeks;
   }, [days, scores, dim]);
 
-  const shift = (n: number) => {
-    let m = month + n, y = year;
-    if (m < 0) { m = 11; y--; }
-    if (m > 11) { m = 0; y++; }
-    setMonth(m); setYear(y);
-  };
-
   // Calendrier : premier jour du mois
   const firstDayWeekday = new Date(year, month, 1).getDay(); // 0 = dimanche
   const emptyCells = firstDayWeekday === 0 ? 6 : firstDayWeekday - 1; // Lundi = 1er
@@ -179,10 +170,10 @@ export function ActivitiesView() {
 
       <Panel
         title={
-          <div className="flex items-center gap-3">
-            <button onClick={() => shift(-1)} className="grid place-items-center h-8 w-8 rounded-md border border-border hover:bg-secondary"><ChevronLeft className="h-4 w-4" /></button>
-            <span className="text-base">{MONTHS[month]} {year}</span>
-            <button onClick={() => shift(1)} className="grid place-items-center h-8 w-8 rounded-md border border-border hover:bg-secondary"><ChevronRight className="h-4 w-4" /></button>
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-primary" />
+            <span className="text-base capitalize">{MONTHS[month]} {year}</span>
+            <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/30">Mois en cours</span>
           </div>
         }
         action={
@@ -192,6 +183,10 @@ export function ActivitiesView() {
           </div>
         }
       >
+        <div className="mb-4 rounded-lg border border-border/60 bg-secondary/30 px-3 py-2 text-[11px] text-muted-foreground flex items-start gap-2">
+          <span>🔄</span>
+          <span>Chaque nouveau mois, un calendrier vierge est créé. Les mois passés restent consultables dans <b className="text-foreground">Synthèse annuelle</b> (12 mois).</span>
+        </div>
         {/* Calendrier visuel mensuel */}
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
