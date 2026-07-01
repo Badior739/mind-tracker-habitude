@@ -25,8 +25,11 @@ function getScoreTextColor(score: number, max: number) {
 
 export function ActivitiesView() {
   const today = new Date();
-  const [year, setYear] = useLocalStorage("mt.act.year", today.getFullYear());
-  const [month, setMonth] = useLocalStorage("mt.act.month", today.getMonth());
+  // 🔒 Le suivi quotidien est toujours verrouillé sur le mois en cours.
+  // Les données des mois précédents restent conservées et consultables
+  // dans l'onglet « Synthèse annuelle » (12 mois).
+  const year = today.getFullYear();
+  const month = today.getMonth();
   const key = `mt.act.${year}-${month}`;
   const [data, setData] = useLocalStorage<MonthData>(key, {});
   const [activities, setActivities] = useLocalStorage<CustomActivity[]>(
@@ -34,8 +37,8 @@ export function ActivitiesView() {
     ACTIVITIES.map((a) => ({ key: a.key, label: a.label, emoji: a.emoji }))
   );
   const [showConfig, setShowConfig] = useState(false);
-  const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
-  const [selectedDay, setSelectedDay] = useState<number | null>(isCurrentMonth ? today.getDate() : null);
+  const isCurrentMonth = true;
+  const [selectedDay, setSelectedDay] = useState<number | null>(today.getDate());
   const [lastSaved, setLastSaved] = useState<number | null>(null);
   // marque "Enregistré automatiquement ✓" à chaque modification
   useEffect(() => {
@@ -43,11 +46,6 @@ export function ActivitiesView() {
     const t = setTimeout(() => setLastSaved(null), 1800);
     return () => clearTimeout(t);
   }, [data]);
-  // Recalc sélection quand on change de mois
-  useEffect(() => {
-    setSelectedDay(isCurrentMonth ? today.getDate() : null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [year, month]);
 
   const addActivity = () => {
     const k = `act-${Date.now()}`;
@@ -127,13 +125,6 @@ export function ActivitiesView() {
     });
     return weeks;
   }, [days, scores, dim]);
-
-  const shift = (n: number) => {
-    let m = month + n, y = year;
-    if (m < 0) { m = 11; y--; }
-    if (m > 11) { m = 0; y++; }
-    setMonth(m); setYear(y);
-  };
 
   // Calendrier : premier jour du mois
   const firstDayWeekday = new Date(year, month, 1).getDay(); // 0 = dimanche
