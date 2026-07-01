@@ -57,8 +57,11 @@ function DoughnutCard({ data }: { data: { name: string; value: number; color: st
 
 export function FinancesView() {
   const today = new Date();
-  const [year, setYear] = useLocalStorage("mt.fin.year", today.getFullYear());
-  const [month, setMonth] = useLocalStorage("mt.fin.month", today.getMonth());
+  // 🔒 La saisie financière est toujours verrouillée sur le mois en cours.
+  // Les mois précédents (montants économisés, dépenses, revenus…) restent
+  // consultables dans l'onglet « Historique » sur 12 mois.
+  const year = today.getFullYear();
+  const month = today.getMonth();
   const [lines, setLines] = useLocalStorage<FinanceLine[]>(
     `mt.fin.lines.${year}-${month}`, DEFAULT_FINANCE_LINES
   );
@@ -160,21 +163,13 @@ export function FinancesView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <div className="text-xs text-muted-foreground mb-1">Mois</div>
-          <select
-            value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
-            className="bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
-          >
-            {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-          </select>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border px-4 py-3" style={{ background: "var(--gradient-card)" }}>
+        <div className="flex items-center gap-2">
+          <Wallet className="h-4 w-4 text-primary" />
+          <span className="text-sm font-semibold capitalize">{MONTHS[month]} {year}</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/30">Mois en cours</span>
         </div>
-        <div>
-          <div className="text-xs text-muted-foreground mb-1">Année</div>
-          <NumberInput value={year} onChange={setYear} className="w-28" />
-        </div>
+        <div className="text-[11px] text-muted-foreground">🔄 Nouveau budget vierge chaque mois · Historique 12 mois → onglet <b className="text-foreground">Historique</b></div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
