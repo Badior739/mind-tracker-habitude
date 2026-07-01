@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ACTIVITIES, MONTHS, daysInMonth, dayLabel, type DayEntry, type CustomActivity } from "@/lib/mind-data";
 import { useLocalStorage } from "@/lib/storage";
 import { Panel, TextInput, ProgressBar } from "./ui";
-import { ChevronLeft, ChevronRight, Flame, Trophy, CalendarDays, Plus, Trash2, Settings as SettingsIcon } from "lucide-react";
+import { Flame, Trophy, CalendarDays, Plus, Trash2, Settings as SettingsIcon } from "lucide-react";
 import { toast } from "sonner";
 
 type MonthData = Record<number, DayEntry>;
