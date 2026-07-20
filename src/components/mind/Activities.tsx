@@ -273,6 +273,28 @@ export function ActivitiesView() {
                     ))}
                   </div>
                 </div>
+                <details className="mt-3 rounded-lg border border-border/60 bg-secondary/30 group" open={!!(e.prio1 || e.prio2 || e.prio3)}>
+                  <summary className="cursor-pointer list-none flex items-center justify-between px-3 py-2 text-[11px] font-semibold text-foreground">
+                    <span className="inline-flex items-center gap-1.5">🎯 Tâches prioritaires du jour</span>
+                    <span className="text-muted-foreground transition-transform group-open:rotate-180">▾</span>
+                  </summary>
+                  <div className="px-3 pb-3 pt-1 space-y-2">
+                    {[1, 2, 3].map((n) => {
+                      const k = `prio${n}` as const;
+                      return (
+                        <label key={n} className="block text-[11px] text-muted-foreground">
+                          Priorité {n}
+                          <TextInput
+                            value={(e as any)[k] || ""}
+                            onChange={(v) => setDay(d, { [k]: v } as Partial<DayEntry>)}
+                            placeholder={`Objectif clé n°${n}…`}
+                            className="mt-1"
+                          />
+                        </label>
+                      );
+                    })}
+                  </div>
+                </details>
                 <div className="mt-3 flex items-center justify-between gap-2 pt-2 border-t border-border/60">
                   <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1.5">
                     {lastSaved ? (
