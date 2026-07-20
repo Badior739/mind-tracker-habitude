@@ -1,16 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function useLocalStorage<T>(key: string, initial: T) {
-  const [value, setValue] = useState<T>(() => {
+  const read = (k: string): T => {
     if (typeof window === "undefined") return initial;
     try {
-      const raw = window.localStorage.getItem(key);
+      const raw = window.localStorage.getItem(k);
       return raw ? (JSON.parse(raw) as T) : initial;
     } catch {
       return initial;
     }
-  });
+  };
+  const [value, setValue] = useState<T>(() => read(key));
+  const prevKey = useRef(key);
+  // Quand la clé change (ex. changement de mois), on relit depuis le storage
+  // au lieu de réécrire l'ancienne valeur sous la nouvelle clé.
+  if (prevKey.current !== key) {
+    prevKey.current = key;
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    // setValue pendant le render : React planifie un re-render immédiat avec la nouvelle valeur.
+    setValue(read(key));
+  }
   useEffect(() => {
+    if (prevKey.current !== key) return; // évite d'écrire avant la relecture
     try {
       window.localStorage.setItem(key, JSON.stringify(value));
     } catch {}
