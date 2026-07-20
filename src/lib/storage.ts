@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export function useLocalStorage<T>(key: string, initial: T) {
   const read = (k: string): T => {
@@ -10,23 +10,22 @@ export function useLocalStorage<T>(key: string, initial: T) {
       return initial;
     }
   };
-  const [value, setValue] = useState<T>(() => read(key));
-  const prevKey = useRef(key);
-  // Quand la clé change (ex. changement de mois), on relit depuis le storage
-  // au lieu de réécrire l'ancienne valeur sous la nouvelle clé.
-  if (prevKey.current !== key) {
-    prevKey.current = key;
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    // setValue pendant le render : React planifie un re-render immédiat avec la nouvelle valeur.
-    setValue(read(key));
+  // On garde la clé associée à la valeur dans l'état, pour éviter d'écrire
+  // l'ancienne valeur sous une nouvelle clé lors d'un changement (ex. mois).
+  const [state, setState] = useState<{ k: string; v: T }>(() => ({ k: key, v: read(key) }));
+  if (state.k !== key) {
+    setState({ k: key, v: read(key) });
   }
   useEffect(() => {
-    if (prevKey.current !== key) return; // évite d'écrire avant la relecture
+    if (state.k !== key) return;
     try {
-      window.localStorage.setItem(key, JSON.stringify(value));
+      window.localStorage.setItem(key, JSON.stringify(state.v));
     } catch {}
-  }, [key, value]);
-  return [value, setValue] as const;
+  }, [key, state]);
+  const setValue = useCallback((v: T | ((prev: T) => T)) => {
+    setState((s) => ({ k: s.k, v: typeof v === "function" ? (v as (p: T) => T)(s.v) : v }));
+  }, []);
+  return [state.v, setValue] as const;
 }
 
 export const fmtCFA = (n: number) =>
