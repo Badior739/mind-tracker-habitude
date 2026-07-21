@@ -7,12 +7,14 @@ import { toast } from "sonner";
 
 type MonthData = Record<number, DayEntry>;
 
-function getScoreColor(score: number, max: number) {
+function getScoreColor(score: number, max: number, empty = false) {
+  if (empty) return "bg-secondary/40";
   const p = (score / max) * 100;
   if (p >= 80) return "bg-[color:var(--success)]/70";
   if (p >= 60) return "bg-primary/60";
   if (p >= 40) return "bg-[color:var(--warning)]/60";
-  return "bg-destructive/50";
+  if (p > 0) return "bg-destructive/50";
+  return "bg-secondary/40";
 }
 
 function getScoreTextColor(score: number, max: number) {
@@ -71,6 +73,12 @@ export function ActivitiesView() {
   const setDay = (d: number, patch: Partial<DayEntry>) =>
     setData({ ...data, [d]: { ...(data[d] || {}), ...patch } });
 
+  const hasEntry = (d: number) => {
+    const e = data[d];
+    if (!e) return false;
+    if (e.reveil || e.notes || e.prio1 || e.prio2 || e.prio3) return true;
+    return activities.some((a) => !!e[a.key]);
+  };
   const scores = days.map((d) => {
     const e = data[d] || {};
     return activities.reduce((s, a) => s + (e[a.key] ? 1 : 0), 0);
@@ -202,8 +210,9 @@ export function ActivitiesView() {
             ))}
             {days.map((d) => {
               const score = scores[d - 1];
-              const color = getScoreColor(score, maxScore);
-              const tc = getScoreTextColor(score, maxScore);
+              const empty = !hasEntry(d);
+              const color = getScoreColor(score, maxScore, empty);
+              const tc = empty ? "text-muted-foreground" : getScoreTextColor(score, maxScore);
               const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
               const isSelected = d === selectedDay;
               return (
@@ -279,20 +288,50 @@ export function ActivitiesView() {
                     <span className="text-muted-foreground transition-transform group-open:rotate-180">▾</span>
                   </summary>
                   <div className="px-3 pb-3 pt-1 space-y-2">
-                    {[1, 2, 3].map((n) => {
-                      const k = `prio${n}` as const;
-                      return (
-                        <label key={n} className="block text-[11px] text-muted-foreground">
-                          Priorité {n}
-                          <TextInput
-                            value={(e as any)[k] || ""}
-                            onChange={(v) => setDay(d, { [k]: v } as Partial<DayEntry>)}
-                            placeholder={`Objectif clé n°${n}…`}
-                            className="mt-1"
-                          />
-                        </label>
-                      );
-                    })}
+                    {(() => {
+                      const checked = activities.filter((a) => !!e[a.key]);
+                      const pool = checked.length ? checked : activities;
+                      return [1, 2, 3].map((n) => {
+                        const k = `prio${n}` as const;
+                        const val = ((e as any)[k] || "") as string;
+                        const isCustom = val !== "" && !pool.some((a) => `${a.emoji} ${a.label}` === val);
+                        return (
+                          <label key={n} className="block text-[11px] text-muted-foreground">
+                            Priorité {n}
+                            <select
+                              value={isCustom ? "__custom__" : val}
+                              onChange={(ev) => {
+                                const v = ev.target.value;
+                                if (v === "__custom__") setDay(d, { [k]: " " } as Partial<DayEntry>);
+                                else setDay(d, { [k]: v } as Partial<DayEntry>);
+                              }}
+                              className="mt-1 w-full h-9 px-2 rounded-md border border-border bg-background text-foreground text-xs"
+                            >
+                              <option value="">— Choisir une activité —</option>
+                              {pool.map((a) => (
+                                <option key={a.key} value={`${a.emoji} ${a.label}`}>
+                                  {a.emoji} {a.label}
+                                </option>
+                              ))}
+                              <option value="__custom__">✏️ Autre (saisie libre)</option>
+                            </select>
+                            {isCustom && (
+                              <TextInput
+                                value={val.trim() === "" ? "" : val}
+                                onChange={(v) => setDay(d, { [k]: v } as Partial<DayEntry>)}
+                                placeholder={`Objectif clé n°${n}…`}
+                                className="mt-1"
+                              />
+                            )}
+                          </label>
+                        );
+                      });
+                    })()}
+                    {activities.filter((a) => !!e[a.key]).length === 0 && (
+                      <div className="text-[10px] text-muted-foreground italic">
+                        💡 Coche des activités ci-dessus pour restreindre la liste aux activités du jour.
+                      </div>
+                    )}
                   </div>
                 </details>
                 <div className="mt-3 flex items-center justify-between gap-2 pt-2 border-t border-border/60">
