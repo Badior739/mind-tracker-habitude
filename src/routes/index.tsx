@@ -13,8 +13,8 @@ import { PinLock } from "@/components/mind/PinLock";
 import { StreaksPanel } from "@/components/mind/Streaks";
 import { useLocalStorage } from "@/lib/storage";
 import { DEFAULT_APP_PREFS, DEFAULT_NOTIFS, type AppPrefs, type NotifPrefs } from "@/lib/prefs";
-import { runNotificationChecks } from "@/lib/notifications";
-import { requestNotifPermission } from "@/lib/notifications";
+import { ensureNotificationWorker, getNotificationStatus, requestNotifPermission, runNotificationChecks } from "@/lib/notifications";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -33,7 +33,7 @@ function Index() {
   const [locked, setLocked] = useState(true);
   const [pinMode, setPinMode] = useState<"auto" | "setup">("auto");
   const [app] = useLocalStorage<AppPrefs>("mt.app.v1", DEFAULT_APP_PREFS);
-  const [notifs] = useLocalStorage<NotifPrefs>("mt.notifs.v1", DEFAULT_NOTIFS);
+  const [notifs, setNotifs] = useLocalStorage<NotifPrefs>("mt.notifs.v1", DEFAULT_NOTIFS);
   const idleTimer = useRef<number | null>(null);
 
   // Auto-lock par inactivité
@@ -58,11 +58,33 @@ function Index() {
   // Vérifications notifications périodiques
   useEffect(() => {
     if (locked) return;
-    // Demande automatique de permission au premier déverrouillage si les rappels sont voulus
     (async () => {
-      if (typeof window !== "undefined" && "Notification" in window) {
-        if (notifs.enabled && Notification.permission === "default") {
-          await requestNotifPermission();
+      if (typeof window !== "undefined") {
+        const status = getNotificationStatus();
+        const promptKey = "mt.notif.permission.prompted.session";
+
+        if (status.permission === "default" && !sessionStorage.getItem(promptKey)) {
+          sessionStorage.setItem(promptKey, "1");
+          toast("Activer les rappels Mind Tracker ?", {
+            description: "Cliquez sur Autoriser pour recevoir les rappels Activités et Finances.",
+            action: {
+              label: "Autoriser",
+              onClick: async () => {
+                const p = await requestNotifPermission();
+                if (p === "granted") {
+                  await ensureNotificationWorker();
+                  setNotifs({ ...notifs, enabled: true });
+                  toast.success("Notifications autorisées", { description: "Les rappels sont maintenant actifs." });
+                } else {
+                  toast.error("Notifications non autorisées", { description: "Activez-les dans les réglages du navigateur puis réessayez." });
+                }
+              },
+            },
+          });
+        }
+
+        if (status.permission === "granted") {
+          await ensureNotificationWorker();
         }
       }
       runNotificationChecks(notifs);
