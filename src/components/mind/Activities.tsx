@@ -282,26 +282,57 @@ export function ActivitiesView() {
                     ))}
                   </div>
                 </div>
+                {(() => { return null; })()}
                 <details className="mt-3 rounded-lg border border-border/60 bg-secondary/30 group" open={!!(e.prio1 || e.prio2 || e.prio3)}>
                   <summary className="cursor-pointer list-none flex items-center justify-between px-3 py-2 text-[11px] font-semibold text-foreground">
                     <span className="inline-flex items-center gap-1.5">🎯 Tâches prioritaires du jour</span>
                     <span className="text-muted-foreground transition-transform group-open:rotate-180">▾</span>
                   </summary>
                   <div className="px-3 pb-3 pt-1 space-y-2">
-                    {[1, 2, 3].map((n) => {
-                      const k = `prio${n}` as const;
-                      return (
-                        <label key={n} className="block text-[11px] text-muted-foreground">
-                          Priorité {n}
-                          <TextInput
-                            value={(e as any)[k] || ""}
-                            onChange={(v) => setDay(d, { [k]: v } as Partial<DayEntry>)}
-                            placeholder={`Objectif clé n°${n}…`}
-                            className="mt-1"
-                          />
-                        </label>
-                      );
-                    })}
+                    {(() => {
+                      const checked = activities.filter((a) => !!e[a.key]);
+                      const pool = checked.length ? checked : activities;
+                      return [1, 2, 3].map((n) => {
+                        const k = `prio${n}` as const;
+                        const val = ((e as any)[k] || "") as string;
+                        const isCustom = val !== "" && !pool.some((a) => `${a.emoji} ${a.label}` === val);
+                        return (
+                          <label key={n} className="block text-[11px] text-muted-foreground">
+                            Priorité {n}
+                            <select
+                              value={isCustom ? "__custom__" : val}
+                              onChange={(ev) => {
+                                const v = ev.target.value;
+                                if (v === "__custom__") setDay(d, { [k]: " " } as Partial<DayEntry>);
+                                else setDay(d, { [k]: v } as Partial<DayEntry>);
+                              }}
+                              className="mt-1 w-full h-9 px-2 rounded-md border border-border bg-background text-foreground text-xs"
+                            >
+                              <option value="">— Choisir une activité —</option>
+                              {pool.map((a) => (
+                                <option key={a.key} value={`${a.emoji} ${a.label}`}>
+                                  {a.emoji} {a.label}
+                                </option>
+                              ))}
+                              <option value="__custom__">✏️ Autre (saisie libre)</option>
+                            </select>
+                            {isCustom && (
+                              <TextInput
+                                value={val.trim() === "" ? "" : val}
+                                onChange={(v) => setDay(d, { [k]: v } as Partial<DayEntry>)}
+                                placeholder={`Objectif clé n°${n}…`}
+                                className="mt-1"
+                              />
+                            )}
+                          </label>
+                        );
+                      });
+                    })()}
+                    {activities.filter((a) => !!e[a.key]).length === 0 && (
+                      <div className="text-[10px] text-muted-foreground italic">
+                        💡 Coche des activités ci-dessus pour restreindre la liste aux activités du jour.
+                      </div>
+                    )}
                   </div>
                 </details>
                 <div className="mt-3 flex items-center justify-between gap-2 pt-2 border-t border-border/60">
