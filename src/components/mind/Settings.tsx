@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Panel } from "./ui";
 import { useLocalStorage } from "@/lib/storage";
 import { DEFAULT_APP_PREFS, DEFAULT_NOTIFS, type AppPrefs, type NotifPrefs } from "@/lib/prefs";
-import { canNotify, requestNotifPermission, notify } from "@/lib/notifications";
+import { ensureNotificationWorker, getNotificationStatus, requestNotifPermission, notify } from "@/lib/notifications";
 import { toast } from "sonner";
 import { clearPin, pinIsSet } from "@/lib/pin";
 import { exportActivitiesCSV, exportFinanceCSV, printToPDF } from "@/lib/export";
-import { Bell, Lock, EyeOff, Download, Printer, ShieldCheck, RotateCcw, Upload, Save, RefreshCw } from "lucide-react";
+import { Bell, CheckCircle2, ExternalLink, Lock, EyeOff, Download, Printer, ShieldCheck, RotateCcw, Upload, Save, RefreshCw, XCircle } from "lucide-react";
 import { exportBackup, importBackup } from "@/lib/backup";
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -33,24 +33,25 @@ function Switch({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
 export function SettingsView({ onChangePin }: { onChangePin: () => void }) {
   const [notifs, setNotifs] = useLocalStorage<NotifPrefs>("mt.notifs.v1", DEFAULT_NOTIFS);
   const [app, setApp] = useLocalStorage<AppPrefs>("mt.app.v1", DEFAULT_APP_PREFS);
-  const [perm, setPerm] = useState<NotificationPermission>(() =>
-    typeof window !== "undefined" && "Notification" in window ? Notification.permission : "denied"
-  );
+  const [status, setStatus] = useState(() => getNotificationStatus());
+  const perm = status.permission;
   const today = new Date();
   const [exYear, setExYear] = useState(today.getFullYear());
   const [exMonth, setExMonth] = useState(today.getMonth());
   const fileRef = useRef<HTMLInputElement>(null);
   const [importMode, setImportMode] = useState<"merge" | "replace">("replace");
 
-  useEffect(() => { setPerm(canNotify() ? "granted" : (("Notification" in window) ? Notification.permission : "denied")); }, [notifs.enabled]);
+  useEffect(() => { setStatus(getNotificationStatus()); }, [notifs.enabled]);
 
   async function toggleEnable(v: boolean) {
     if (v) {
       const p = await requestNotifPermission();
-      setPerm(p);
+      if (p === "granted") await ensureNotificationWorker();
+      setStatus(getNotificationStatus());
       if (p === "granted") {
         setNotifs({ ...notifs, enabled: true });
-        notify("Notifications activées", "Vous recevrez vos rappels Mind Tracker.");
+        const result = await notify("Notifications activées", "Vous recevrez vos rappels Mind Tracker.");
+        if (result.channel === "system") toast.success("Notifications activées", { description: "Le test système a bien été envoyé." });
       } else if (p === "denied") {
         toast.error("Notifications bloquées", { description: "Autorisez-les dans les réglages du navigateur pour ce site." });
       } else {
@@ -88,6 +89,21 @@ export function SettingsView({ onChangePin }: { onChangePin: () => void }) {
       </Panel>
 
       <Panel title={<span className="inline-flex items-center gap-2"><Bell className="h-4 w-4 text-accent"/>Notifications & rappels</span>}>
+        <div className={`mb-3 p-3 rounded-md border text-xs ${
+          status.canUseSystem
+            ? "border-[color:var(--success)]/40 bg-[color:var(--success)]/10 text-[color:var(--success)]"
+            : "border-[color:var(--warning)]/40 bg-[color:var(--warning)]/10 text-[color:var(--warning)]"
+        }`}>
+          <div className="flex items-start gap-2">
+            {status.canUseSystem ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" /> : <XCircle className="h-4 w-4 mt-0.5 shrink-0" />}
+            <div>
+              <div className="font-medium">Diagnostic : {status.message}</div>
+              <div className="mt-1 text-muted-foreground">
+                Autorisation : {perm === "granted" ? "accordée" : perm === "denied" ? "bloquée" : "pas encore demandée"} · HTTPS : {status.secureContext ? "oui" : "non"} · App installée : {status.standalone ? "oui" : "non"}
+              </div>
+            </div>
+          </div>
+        </div>
         {perm === "denied" && (
           <div className="mb-3 p-3 rounded-md border border-destructive/40 bg-destructive/10 text-xs">
             Les notifications sont bloquées par le navigateur. Autorisez-les dans les réglages du site pour activer les rappels.
@@ -156,11 +172,18 @@ export function SettingsView({ onChangePin }: { onChangePin: () => void }) {
         </Row>
         <div className="pt-4 flex flex-col gap-2">
           <button onClick={async () => {
-              const p = canNotify() ? "granted" : await requestNotifPermission();
-              setPerm(p);
+              const current = getNotificationStatus();
+              const p = current.permission === "granted" ? "granted" : await requestNotifPermission();
+              if (p === "granted") await ensureNotificationWorker();
+              setStatus(getNotificationStatus());
               if (p === "granted") {
-                notify("Notification de test ✅", "Tout fonctionne ! Vous recevrez bien vos rappels.");
-                toast.success("Permission accordée", { description: "Une notification de test a été envoyée." });
+                setNotifs({ ...notifs, enabled: true });
+                const result = await notify("Notification de test ✅", "Tout fonctionne ! Vous recevrez bien vos rappels.");
+                if (result.channel === "system") {
+                  toast.success("Permission accordée", { description: "Une notification système a été envoyée." });
+                } else {
+                  toast.warning("Notification interne seulement", { description: result.reason });
+                }
               } else if (p === "denied") {
                 toast.error("Permission bloquée par le navigateur", {
                   description: "Allez dans les réglages du site pour réactiver les notifications.",
@@ -181,8 +204,15 @@ export function SettingsView({ onChangePin }: { onChangePin: () => void }) {
           </div>
         </div>
         <p className="text-[11px] text-muted-foreground mt-3">
-          Astuce : pour recevoir les rappels même quand l'app est fermée sur mobile, ajoutez Mind Tracker à votre écran d'accueil (PWA).
+          Astuce : sur Android, ouvrez l'app dans Chrome puis autorisez les notifications du site. Sur iPhone, ajoutez Mind Tracker à l'écran d'accueil avant d'autoriser les rappels.
         </p>
+        <button
+          type="button"
+          onClick={() => window.open(window.location.href, "_blank", "noopener,noreferrer")}
+          className="mt-2 inline-flex items-center gap-2 text-xs text-primary hover:underline"
+        >
+          <ExternalLink className="h-3.5 w-3.5"/>Ouvrir dans un onglet complet
+        </button>
       </Panel>
 
       <Panel title={<span className="inline-flex items-center gap-2"><EyeOff className="h-4 w-4 text-primary"/>Confidentialité — Mode discret</span>}>

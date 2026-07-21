@@ -37,15 +37,23 @@ function Dots({ value, length = 6 }: { value: string; length?: number }) {
 }
 
 export function PinLock({ onUnlock, mode = "auto" }: { onUnlock: () => void; mode?: "auto" | "setup" }) {
-  const [stage, setStage] = useState<"setup1"|"setup2"|"verify">(() =>
-    mode === "setup" || !pinIsSet() ? "setup1" : "verify"
-  );
+  const [ready, setReady] = useState(false);
+  const [stage, setStage] = useState<"setup1"|"setup2"|"verify">("setup1");
   const [pin, setPinValue] = useState("");
   const [first, setFirst] = useState("");
   const [err, setErr] = useState<string | null>(null);
-  const [attempts, setAttempts] = useState(getAttempts());
+  const [attempts, setAttempts] = useState(0);
   const [lockUntil, setLockUntil] = useState(0);
   const tick = useRef<number | null>(null);
+
+  useEffect(() => {
+    setStage(mode === "setup" || !pinIsSet() ? "setup1" : "verify");
+    setAttempts(getAttempts());
+    setPinValue("");
+    setFirst("");
+    setErr(null);
+    setReady(true);
+  }, [mode]);
 
   useEffect(() => {
     if (lockUntil > Date.now()) {
@@ -75,6 +83,21 @@ export function PinLock({ onUnlock, mode = "auto" }: { onUnlock: () => void; mod
     ? "6 chiffres pour déverrouiller Mind Tracker"
     : "Choisissez 6 chiffres faciles à mémoriser";
   const remaining = Math.max(0, Math.ceil((lockUntil - Date.now()) / 1000));
+
+  if (!ready) {
+    return (
+      <div className="fixed inset-0 z-50 grid place-items-center bg-background px-4">
+        <div className="w-full max-w-md text-center">
+          <div className="mx-auto h-16 w-16 grid place-items-center rounded-2xl mb-4"
+               style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}>
+            <Lock className="h-7 w-7 text-primary-foreground" />
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight">Mind Tracker</h1>
+          <p className="text-sm text-muted-foreground mt-2">Chargement sécurisé…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-background px-4">

@@ -25,6 +25,7 @@ export function pinIsSet() {
 }
 
 export async function setPin(pin: string) {
+  if (typeof window === "undefined") return;
   const salt = randomSalt();
   const hash = await sha256(salt + ":" + pin);
   const data: Stored = { salt, hash };
@@ -33,6 +34,7 @@ export async function setPin(pin: string) {
 }
 
 export async function verifyPin(pin: string) {
+  if (typeof window === "undefined") return false;
   const raw = localStorage.getItem(PIN_KEY);
   if (!raw) return false;
   const { salt, hash } = JSON.parse(raw) as Stored;
@@ -41,18 +43,22 @@ export async function verifyPin(pin: string) {
 }
 
 export function clearPin() {
+  if (typeof window === "undefined") return;
   localStorage.removeItem(PIN_KEY);
   localStorage.removeItem(ATTEMPTS_KEY);
 }
 
 export function getAttempts() {
+  if (typeof window === "undefined") return 0;
   return Number(localStorage.getItem(ATTEMPTS_KEY) || "0");
 }
 export function bumpAttempts() {
+  if (typeof window === "undefined") return 0;
   const n = getAttempts() + 1;
   localStorage.setItem(ATTEMPTS_KEY, String(n));
   return n;
 }
 export function resetAttempts() {
+  if (typeof window === "undefined") return;
   localStorage.removeItem(ATTEMPTS_KEY);
 }
