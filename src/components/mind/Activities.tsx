@@ -7,12 +7,14 @@ import { toast } from "sonner";
 
 type MonthData = Record<number, DayEntry>;
 
-function getScoreColor(score: number, max: number) {
+function getScoreColor(score: number, max: number, empty = false) {
+  if (empty) return "bg-secondary/40";
   const p = (score / max) * 100;
   if (p >= 80) return "bg-[color:var(--success)]/70";
   if (p >= 60) return "bg-primary/60";
   if (p >= 40) return "bg-[color:var(--warning)]/60";
-  return "bg-destructive/50";
+  if (p > 0) return "bg-destructive/50";
+  return "bg-secondary/40";
 }
 
 function getScoreTextColor(score: number, max: number) {
@@ -71,6 +73,12 @@ export function ActivitiesView() {
   const setDay = (d: number, patch: Partial<DayEntry>) =>
     setData({ ...data, [d]: { ...(data[d] || {}), ...patch } });
 
+  const hasEntry = (d: number) => {
+    const e = data[d];
+    if (!e) return false;
+    if (e.reveil || e.notes || e.prio1 || e.prio2 || e.prio3) return true;
+    return activities.some((a) => !!e[a.key]);
+  };
   const scores = days.map((d) => {
     const e = data[d] || {};
     return activities.reduce((s, a) => s + (e[a.key] ? 1 : 0), 0);
@@ -202,8 +210,9 @@ export function ActivitiesView() {
             ))}
             {days.map((d) => {
               const score = scores[d - 1];
-              const color = getScoreColor(score, maxScore);
-              const tc = getScoreTextColor(score, maxScore);
+              const empty = !hasEntry(d);
+              const color = getScoreColor(score, maxScore, empty);
+              const tc = empty ? "text-muted-foreground" : getScoreTextColor(score, maxScore);
               const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
               const isSelected = d === selectedDay;
               return (
