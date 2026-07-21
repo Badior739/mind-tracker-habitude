@@ -271,6 +271,48 @@ export function SettingsView({ onChangePin }: { onChangePin: () => void }) {
           (e-mail, cloud, WhatsApp…), puis importez-le sur l'autre appareil. Pour une synchronisation automatique entre appareils, activez Lovable Cloud.
         </div>
       </Panel>
+
+      <Panel title={<span className="inline-flex items-center gap-2"><RefreshCw className="h-4 w-4 text-destructive"/>Réinitialiser les données</span>}>
+        <p className="text-xs text-muted-foreground mb-3">
+          Videz les données du <strong>mois en cours</strong> pour repartir sur une saisie propre, ou effacez <strong>tout l'historique</strong>.
+          Pensez à <em>exporter une sauvegarde</em> avant si vous voulez pouvoir les récupérer plus tard.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => {
+              const d = new Date();
+              const y = d.getFullYear(); const m = d.getMonth();
+              if (!confirm(`Vider les activités ET les finances du mois en cours (${m + 1}/${y}) ?\nLes autres mois restent intacts.`)) return;
+              const keys = [
+                `mt.act.${y}-${m}`,
+                `mt.fin.lines.${y}-${m}`,
+                `mt.fin.goals.${y}-${m}`,
+              ];
+              keys.forEach((k) => localStorage.removeItem(k));
+              toast.success("Mois en cours réinitialisé", { description: "Rechargement…" });
+              setTimeout(() => window.location.reload(), 700);
+            }}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-md border border-destructive/40 text-destructive hover:bg-destructive/10">
+            <RefreshCw className="h-4 w-4"/>Vider le mois en cours
+          </button>
+          <button
+            onClick={() => {
+              if (!confirm("⚠️ EFFACER TOUTES LES DONNÉES Mind Tracker (activités, finances, roadmap, réglages) ?\nCette action est irréversible.")) return;
+              if (!confirm("Confirmer définitivement la suppression complète ?")) return;
+              const rm: string[] = [];
+              for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith("mt.")) rm.push(k);
+              }
+              rm.forEach((k) => localStorage.removeItem(k));
+              toast.success("Toutes les données ont été effacées", { description: "Rechargement…" });
+              setTimeout(() => window.location.reload(), 700);
+            }}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-md border border-destructive/60 bg-destructive/10 text-destructive hover:bg-destructive/20">
+            <RefreshCw className="h-4 w-4"/>Tout effacer
+          </button>
+        </div>
+      </Panel>
     </div>
   );
 }
