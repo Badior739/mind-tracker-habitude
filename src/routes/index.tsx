@@ -14,6 +14,7 @@ import { StreaksPanel } from "@/components/mind/Streaks";
 import { useLocalStorage } from "@/lib/storage";
 import { DEFAULT_APP_PREFS, DEFAULT_NOTIFS, type AppPrefs, type NotifPrefs } from "@/lib/prefs";
 import { runNotificationChecks } from "@/lib/notifications";
+import { requestNotifPermission } from "@/lib/notifications";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -57,7 +58,15 @@ function Index() {
   // Vérifications notifications périodiques
   useEffect(() => {
     if (locked) return;
-    runNotificationChecks(notifs);
+    // Demande automatique de permission au premier déverrouillage si les rappels sont voulus
+    (async () => {
+      if (typeof window !== "undefined" && "Notification" in window) {
+        if (notifs.enabled && Notification.permission === "default") {
+          await requestNotifPermission();
+        }
+      }
+      runNotificationChecks(notifs);
+    })();
     const id = window.setInterval(() => runNotificationChecks(notifs), 60_000);
     return () => window.clearInterval(id);
   }, [locked, notifs]);
