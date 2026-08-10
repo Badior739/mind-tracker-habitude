@@ -1,63 +1,60 @@
 # PROMPT UNIQUE — Onglet « Dashboard » de Mind Tracker
 
-Utilise ce prompt seul pour reproduire à l'identique l'onglet Dashboard (tableau de bord) de l'application Mind Tracker.
+Utilise ce prompt seul pour reproduire à l'identique l'onglet Dashboard de l'application Mind Tracker.
 
 ---
 
 ## Prompt à copier-coller
 
-Crée l'onglet **Dashboard** d'une application de suivi personnel & financier nommée **Mind Tracker** (interface en français, monnaie FCFA).
+Crée l'onglet **Dashboard** (vue d'ensemble) d'une application de suivi personnel & financier nommée **Mind Tracker** (interface 100 % en français, monnaie **F CFA**).
 
 ### Stack et contraintes
 - React + TypeScript, Tailwind CSS, icônes `lucide-react`.
-- Aucune base de données : toutes les données sont lues depuis `localStorage`.
-- Aucune couleur codée en dur : utiliser uniquement des tokens sémantiques (`primary`, `accent`, `success`, `warning`, `destructive`, `border`, `muted-foreground`, `secondary`) et les variables `--gradient-card` / `--gradient-primary`.
-- Thème sombre élégant (ardoise + émeraude + cyan), coins arrondis `rounded-2xl`, halos flous, typographie `tracking-tight`.
-- Responsive : 2 colonnes sur mobile, 4 sur desktop pour les statistiques.
+- Aucune base de données : lecture seule de `localStorage` (le Dashboard n'écrit jamais de données métier).
+- Aucune couleur codée en dur dans les classes : tokens sémantiques (`primary`, `accent`, `success`, `warning`, `destructive`, `border`, `muted-foreground`, `foreground`) et variables `--gradient-card`, `--gradient-primary`. Seules exceptions autorisées : les trois couleurs `oklch` du donut SVG.
+- Thème sombre (ardoise + émeraude + cyan), cartes `rounded-2xl` / `rounded-xl`, chiffres `tabular-nums`.
+- Rendu SSR-safe : si `typeof window === "undefined"`, le calcul renvoie `null` et le composant ne rend rien.
+- Responsive : 2 colonnes de cartes sur mobile, 4 sur desktop ; panneaux empilés sur mobile, 2 colonnes en `lg:`.
 
-### Données lues (localStorage)
-- `mt.act.year` (number), `mt.act.month` (0-11) — période affichée, défaut = mois en cours.
-- `mt.act.${year}-${month}` → `Record<number, DayEntry>` où `DayEntry = { reveil?: string; notes?: string; [activityKey]: boolean }`.
-- `mt.fin.lines.${year}-${month}` → `FinanceLine[]` avec au minimum `{ category: "revenus" | "essentiel" | "investissement" | "epargne"; budget: number; reel: number }`.
+### Sources de données (lecture seule)
+- Activités : `mt.act.${year}-${month}` → `Record<number, DayEntry>`.
+- Finances : `mt.fin.lines.${year}-${month}` → `FinanceLine[]` avec `category ∈ {revenus, essentiel, investissement, epargne}` et `reel: number`.
+- Mois affiché = mois en cours (`new Date()`), lecture tolérante aux erreurs (`try/catch` → `{}` ou `[]`).
+- Liste d'activités de référence (11) : 🙏 Méditation, 📖 Lecture, 💪 Sport, 💻 Coding Vibe, 🎓 Formation, 📱 Réseaux Pro, 🍽️ Repas Sain, 💧 Eau 2L, 📝 Journal, 🌙 Sommeil <23h, 🎯 Tâche Prio.
 
-Liste des 11 activités par défaut :
-`🙏 Méditation, 📖 Lecture, 💪 Sport, 💻 Coding Vibe, 🎓 Formation, 📱 Réseaux Pro, 🍽️ Repas Sain, 💧 Eau 2L, 📝 Journal, 🌙 Sommeil <23h, 🎯 Tâche Prio`.
-
-### Calculs (mois affiché uniquement)
-- `total` = somme des activités cochées sur tous les jours du mois.
-- `activeDays` = nombre de jours avec au moins une activité.
-- `avg = total / nombre de jours du mois` → affiché `X.XX/11`.
-- `pctScore = total / (jours × nb activités) × 100`.
-- `rev` = somme des `reel` de catégorie `revenus`.
-- `dep` = essentiel + investissement + épargne (valeurs `reel`).
-- `solde = rev - dep` ; `taux d'épargne = épargne / revenus`.
-- Formatage montants : `Intl.NumberFormat("fr-FR")` + suffixe ` F` (ex. `125 000 F`).
-- Formatage pourcentages : 1 décimale.
+### Calculs (un seul `useMemo`)
+- Pour chaque jour du mois, score = nombre d'activités à `true` ; on cumule `total`, `activeDays` (score > 0) et `perAct[key]` (nombre de jours où l'activité est faite).
+- `avg = total / nbJours` ; `pctScore = total / (nbJours × 11) × 100`.
+- `rev / ess / inv / epa` = somme des `reel` par catégorie ; `dep = ess + inv + epa` ; `solde = rev − dep` ; `tx = rev ? epa / rev : 0`.
+- Formats : `Intl.NumberFormat("fr-FR")` + ` F` pour les montants, pourcentages à 1 décimale.
 
 ### Structure visuelle (de haut en bas)
 
-1. **Bandeau héros** — carte `rounded-2xl` avec fond `var(--gradient-card)`, halo circulaire flouté en haut à droite (`var(--gradient-primary)`, opacité 20 %, `blur-3xl`).
-   - Micro-label en majuscules espacées, couleur `primary`, icône `Sparkles` : `MOIS ANNÉE` (ex. « AOÛT 2026 »).
-   - Titre : « Bâtir Mind Graphix Solution, un jour à la fois. »
+1. **Hero** — carte `rounded-2xl border-border p-6 lg:p-8`, fond `var(--gradient-card)`, avec un halo décoratif `absolute -top-20 -right-20 h-64 w-64 rounded-full opacity-20 blur-3xl` en `var(--gradient-primary)`.
+   - Sur-titre `Sparkles` + « Août 2026 » en `text-xs uppercase tracking-widest text-primary`.
+   - Titre `text-2xl lg:text-3xl font-semibold tracking-tight` : « Bâtir Mind Graphix Solution, un jour à la fois. »
    - Sous-titre : « Vue d'ensemble de votre discipline quotidienne et de votre santé financière du mois en cours. »
 
-2. **Quatre cartes de statistiques** (grille 2 × 2 mobile / 4 colonnes desktop), chacune avec libellé, grande valeur, sous-texte et icône colorée :
-   - « Score moyen » → `X.XX/11`, sous-texte `N/JJ jours actifs`, ton `primary`, icône `Activity`.
-   - « % Réussite » → `XX.X%`, sous-texte « Discipline globale », ton `accent`, icône `Target`.
-   - « Solde net » → montant, sous-texte `revenus – dépenses`, ton `success` si ≥ 0 sinon `destructive`, icône `TrendingUp` / `TrendingDown`.
-   - « Taux d'épargne » → pourcentage, sous-texte `Épargne : montant`, ton `primary`, icône `Wallet`.
+2. **Quatre StatCards** (grille 2 / 4 colonnes) — chaque carte : libellé, grande valeur, sous-texte, icône dans une pastille teintée :
+   | carte | valeur | sous-texte | ton | icône |
+   |---|---|---|---|---|
+   | Score moyen | `X.XX/11` | `n/31 jours actifs` | primary | `Activity` |
+   | % Réussite | `XX.X%` | Discipline globale | accent | `Target` |
+   | Solde net | `fmtCFA(solde)` | `revenus – dépenses` | success si ≥ 0 sinon destructive | `TrendingUp` / `TrendingDown` |
+   | Taux d'épargne | `XX.X%` | `Épargne : montant` | primary | `Wallet` |
 
-3. **Deux panneaux côte à côte** (empilés sur mobile) :
-   - **« Performance par activité (mois courant) »** avec un lien d'action « Saisir → » qui navigue vers l'onglet Activités. Pour chaque activité : emoji, libellé, barre de progression et compteur `n/jours`. Couleur de la barre : ≥ 75 % `success`, ≥ 50 % `primary`, ≥ 25 % `warning`, sinon `destructive`.
-   - **« Répartition financière du mois »** avec un lien « Détails → » vers l'onglet Finances, contenant un **donut SVG** de 160 × 160 (rayon 60, `strokeWidth` 22, pivoté `-90°`) construit avec `strokeDasharray` / `strokeDashoffset`. Trois segments : Essentielles (rouge), Investissements (cyan), Épargne (émeraude), sur une piste de fond neutre. À droite, la légende avec pastille de couleur, libellé, montant, puis une ligne séparée « Total dépensé » en gras.
+3. **Panneau « Performance par activité (mois courant) »** (colonne gauche) — action en haut à droite : lien texte « Saisir → » qui navigue vers l'onglet Activités.
+   - Une ligne par activité : emoji (`w-6`), libellé tronqué, `ProgressBar` (`w-28 lg:w-40`) du ratio jours réalisés / jours du mois, puis `n/31` à droite en `tabular-nums`.
+   - Tons de la barre : success ≥ 75 %, primary ≥ 50 %, warning ≥ 25 %, sinon destructive.
 
-4. **Panneau « Streaks & badges »** en bas du dashboard :
-   - Titre avec icône `Flame` en couleur `warning`.
-   - Trois tuiles : « Actuel » (jours consécutifs avec score ≥ 8, couleur `warning`), « Record » (meilleure série sur 12 mois, couleur `primary`), « Parfaits » (jours à 11/11, couleur `accent`).
-   - Grille de 8 badges (4 colonnes) : 🔥 3 jours, ⚡ 1 semaine, 🌟 2 semaines, 🏆 30 jours, 💎 Journée parfaite, 👑 5 jours parfaits, 📚 Régularité (30 jours enregistrés), 🚀 100 jours. Badge débloqué = bordure `primary/40` + fond `primary/10` ; verrouillé = opacité 50 %. Infobulle avec la condition au survol.
-   - Note de bas de panneau avec icône `Trophy` : « Maintenez un score ≥ 8/11 chaque jour pour étendre votre série. »
+4. **Panneau « Répartition financière du mois »** (colonne droite) — action « Détails → » vers l'onglet Finances.
+   - **Donut SVG maison** (pas de librairie) : `viewBox="0 0 160 160"`, classe `h-44 w-44 -rotate-90`, cercle de fond `r=60 strokeWidth=22` gris ardoise, puis un arc par segment via `strokeDasharray` = `fraction × 2πr` et `strokeDashoffset` cumulé.
+   - Segments : Essentielles `oklch(0.62 0.22 25)`, Investissements `oklch(0.7 0.18 200)`, Épargne `oklch(0.78 0.16 175)`.
+   - Légende à droite : carré `h-3 w-3 rounded-sm` de la couleur, libellé, montant `fmtCFA` ; ligne finale séparée par `border-t border-border` : « Total dépensé » en gras.
+   - Si tout est à zéro, le donut reste affiché avec son cercle de fond (division protégée par `|| 1`).
 
 ### Comportements
-- Rendu SSR-safe : ne rien afficher tant que `window` est indisponible ; recalculer via `useMemo` sur `[year, month]`.
-- Les liens « Saisir → » et « Détails → » appellent une prop `goto(tab)`.
-- Si aucune donnée n'existe, afficher zéros et barres vides — jamais d'erreur.
+- Le Dashboard est **purement en lecture** : il reflète instantanément ce qui est saisi dans Activités et Finances.
+- Les deux liens « Saisir → » et « Détails → » déclenchent la navigation par onglet (callback `goto("activities" | "finances")`).
+- **Mode discret** : si activé globalement, tous les montants s'affichent `••••• F`.
+- Un storage vide doit produire des zéros propres, jamais `NaN` ni écran blanc.
