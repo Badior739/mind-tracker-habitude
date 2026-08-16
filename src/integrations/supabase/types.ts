@@ -14,7 +14,98 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      push_deliveries: {
+        Row: {
+          delivered_at: string
+          id: string
+          period_key: string
+          reminder_type: string
+          subscription_id: string
+        }
+        Insert: {
+          delivered_at?: string
+          id?: string
+          period_key: string
+          reminder_type: string
+          subscription_id: string
+        }
+        Update: {
+          delivered_at?: string
+          id?: string
+          period_key?: string
+          reminder_type?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_deliveries_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "push_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          activities_enabled: boolean
+          activities_frequency: string
+          activities_time: string
+          auth: string
+          created_at: string
+          enabled: boolean
+          endpoint: string
+          finances_enabled: boolean
+          finances_frequency: string
+          finances_time: string
+          id: string
+          installation_id: string
+          last_seen_at: string
+          p256dh: string
+          secret_hash: string
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          activities_enabled?: boolean
+          activities_frequency?: string
+          activities_time?: string
+          auth: string
+          created_at?: string
+          enabled?: boolean
+          endpoint: string
+          finances_enabled?: boolean
+          finances_frequency?: string
+          finances_time?: string
+          id?: string
+          installation_id: string
+          last_seen_at?: string
+          p256dh: string
+          secret_hash: string
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          activities_enabled?: boolean
+          activities_frequency?: string
+          activities_time?: string
+          auth?: string
+          created_at?: string
+          enabled?: boolean
+          endpoint?: string
+          finances_enabled?: boolean
+          finances_frequency?: string
+          finances_time?: string
+          id?: string
+          installation_id?: string
+          last_seen_at?: string
+          p256dh?: string
+          secret_hash?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
