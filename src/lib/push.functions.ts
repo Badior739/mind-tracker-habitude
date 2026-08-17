@@ -1,34 +1,22 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-const prefsSchema = z.object({
-  enabled: z.boolean(),
-  activitiesEnabled: z.boolean(),
-  activitiesFrequency: z.enum(["daily", "weekly"]),
-  activitiesTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
-  financesEnabled: z.boolean(),
-  financesFrequency: z.enum(["daily", "weekly"]),
-  financesTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
-  timezone: z.string().min(1).max(100),
-});
-
-const installationSchema = z.object({
-  installationId: z.string().uuid(),
-  installationSecret: z.string().min(32).max(200),
-});
-
 export const getPushPublicKey = createServerFn({ method: "GET" }).handler(async () => {
   const { getPushKeys } = await import("./push.server");
   return { publicKey: getPushKeys().publicKey };
 });
 
 export const savePushSubscription = createServerFn({ method: "POST" })
-  .inputValidator((input) => installationSchema.extend({
-    subscription: z.object({
-      endpoint: z.string().url(),
-      keys: z.object({ p256dh: z.string().min(1), auth: z.string().min(1) }),
+  .inputValidator((input) => z.object({
+    installationId: z.string().uuid(),
+    installationSecret: z.string().min(32).max(200),
+    subscription: z.object({ endpoint: z.string().url(), keys: z.object({ p256dh: z.string().min(1), auth: z.string().min(1) }) }),
+    prefs: z.object({
+      enabled: z.boolean(), activitiesEnabled: z.boolean(), activitiesFrequency: z.enum(["daily", "weekly"]),
+      activitiesTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/), financesEnabled: z.boolean(),
+      financesFrequency: z.enum(["daily", "weekly"]), financesTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+      timezone: z.string().min(1).max(100),
     }),
-    prefs: prefsSchema,
   }).parse(input))
   .handler(async ({ data }) => {
     const { hashInstallationSecret } = await import("./push.server");
@@ -60,7 +48,7 @@ export const savePushSubscription = createServerFn({ method: "POST" })
   });
 
 export const disablePushSubscription = createServerFn({ method: "POST" })
-  .inputValidator((input) => installationSchema.parse(input))
+  .inputValidator((input) => z.object({ installationId: z.string().uuid(), installationSecret: z.string().min(32).max(200) }).parse(input))
   .handler(async ({ data }) => {
     const { hashInstallationSecret } = await import("./push.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -73,7 +61,7 @@ export const disablePushSubscription = createServerFn({ method: "POST" })
   });
 
 export const sendTestPush = createServerFn({ method: "POST" })
-  .inputValidator((input) => installationSchema.parse(input))
+  .inputValidator((input) => z.object({ installationId: z.string().uuid(), installationSecret: z.string().min(32).max(200) }).parse(input))
   .handler(async ({ data }) => {
     const { hashInstallationSecret, sendWebPush } = await import("./push.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
