@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Panel } from "./ui";
 import { useLocalStorage } from "@/lib/storage";
 import { DEFAULT_APP_PREFS, DEFAULT_NOTIFS, type AppPrefs, type NotifPrefs } from "@/lib/prefs";
-import { ensureNotificationWorker, getNotificationStatus, requestNotifPermission, notify } from "@/lib/notifications";
+import { ensureNotificationWorker, getNotificationStatus, hasBackgroundPushSubscription, requestNotifPermission, syncBackgroundPush, testBackgroundPush } from "@/lib/notifications";
 import { toast } from "sonner";
 import { clearPin, pinIsSet } from "@/lib/pin";
 import { exportActivitiesCSV, exportFinanceCSV, printToPDF } from "@/lib/export";
@@ -34,6 +34,8 @@ export function SettingsView({ onChangePin }: { onChangePin: () => void }) {
   const [notifs, setNotifs] = useLocalStorage<NotifPrefs>("mt.notifs.v1", DEFAULT_NOTIFS);
   const [app, setApp] = useLocalStorage<AppPrefs>("mt.app.v1", DEFAULT_APP_PREFS);
   const [status, setStatus] = useState(() => getNotificationStatus());
+  const [backgroundPush, setBackgroundPush] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
   const perm = status.permission;
   const today = new Date();
   const [exYear, setExYear] = useState(today.getFullYear());
@@ -41,7 +43,20 @@ export function SettingsView({ onChangePin }: { onChangePin: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [importMode, setImportMode] = useState<"merge" | "replace">("replace");
 
-  useEffect(() => { setStatus(getNotificationStatus()); }, [notifs.enabled]);
+  useEffect(() => {
+    setStatus(getNotificationStatus());
+    void hasBackgroundPushSubscription().then(setBackgroundPush).catch(() => setBackgroundPush(false));
+  }, [notifs.enabled]);
+
+  useEffect(() => {
+    if (!notifs.enabled || Notification.permission !== "granted") return;
+    const timer = window.setTimeout(() => {
+      void syncBackgroundPush(notifs)
+        .then(() => setBackgroundPush(true))
+        .catch(() => setBackgroundPush(false));
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [notifs]);
 
   async function toggleEnable(v: boolean) {
     if (v) {
@@ -49,15 +64,26 @@ export function SettingsView({ onChangePin }: { onChangePin: () => void }) {
       if (p === "granted") await ensureNotificationWorker();
       setStatus(getNotificationStatus());
       if (p === "granted") {
-        setNotifs({ ...notifs, enabled: true });
-        const result = await notify("Notifications activées", "Vous recevrez vos rappels Mind Tracker.");
-        if (result.channel === "system") toast.success("Notifications activées", { description: "Le test système a bien été envoyé." });
+        const nextPrefs = { ...notifs, enabled: true };
+        setNotifs(nextPrefs);
+        try {
+          await syncBackgroundPush(nextPrefs);
+          setBackgroundPush(true);
+          toast.success("Rappels en arrière-plan activés", { description: "Ils peuvent arriver même lorsque Mind Tracker est fermé." });
+        } catch (error) {
+          setBackgroundPush(false);
+          toast.error("Abonnement impossible", { description: error instanceof Error ? error.message : "Réessayez dans un instant." });
+        }
       } else if (p === "denied") {
         toast.error("Notifications bloquées", { description: "Autorisez-les dans les réglages du navigateur pour ce site." });
       } else {
         toast("Permission refusée", { description: "Réessayez et acceptez la demande du navigateur." });
       }
-    } else setNotifs({ ...notifs, enabled: false });
+    } else {
+      const nextPrefs = { ...notifs, enabled: false };
+      setNotifs(nextPrefs);
+      void syncBackgroundPush(nextPrefs).finally(() => setBackgroundPush(false));
+    }
   }
 
   return (
@@ -99,7 +125,7 @@ export function SettingsView({ onChangePin }: { onChangePin: () => void }) {
             <div>
               <div className="font-medium">Diagnostic : {status.message}</div>
               <div className="mt-1 text-muted-foreground">
-                Autorisation : {perm === "granted" ? "accordée" : perm === "denied" ? "bloquée" : "pas encore demandée"} · HTTPS : {status.secureContext ? "oui" : "non"} · App installée : {status.standalone ? "oui" : "non"}
+                Autorisation : {perm === "granted" ? "accordée" : perm === "denied" ? "bloquée" : "pas encore demandée"} · App installée : {status.standalone ? "oui" : "non"} · Arrière-plan : {backgroundPush ? "actif" : "inactif"}
               </div>
             </div>
           </div>
@@ -171,18 +197,22 @@ export function SettingsView({ onChangePin }: { onChangePin: () => void }) {
           <Switch on={notifs.scoreCongrats} onChange={(v) => setNotifs({ ...notifs, scoreCongrats: v })} />
         </Row>
         <div className="pt-4 flex flex-col gap-2">
-          <button onClick={async () => {
+          <button disabled={pushBusy} onClick={async () => {
+              setPushBusy(true);
               const current = getNotificationStatus();
               const p = current.permission === "granted" ? "granted" : await requestNotifPermission();
               if (p === "granted") await ensureNotificationWorker();
               setStatus(getNotificationStatus());
               if (p === "granted") {
-                setNotifs({ ...notifs, enabled: true });
-                const result = await notify("Notification de test ✅", "Tout fonctionne ! Vous recevrez bien vos rappels.");
-                if (result.channel === "system") {
-                  toast.success("Permission accordée", { description: "Une notification système a été envoyée." });
-                } else {
-                  toast.warning("Notification interne seulement", { description: result.reason });
+                const nextPrefs = { ...notifs, enabled: true };
+                setNotifs(nextPrefs);
+                try {
+                  await testBackgroundPush(nextPrefs);
+                  setBackgroundPush(true);
+                  toast.success("Test serveur envoyé", { description: "La réception confirme le fonctionnement même app fermée." });
+                } catch (error) {
+                  setBackgroundPush(false);
+                  toast.error("Test en arrière-plan échoué", { description: error instanceof Error ? error.message : "Réessayez dans un instant." });
                 }
               } else if (p === "denied") {
                 toast.error("Permission bloquée par le navigateur", {
@@ -191,16 +221,17 @@ export function SettingsView({ onChangePin }: { onChangePin: () => void }) {
               } else {
                 toast("Permission refusée", { description: "Réessayez et acceptez la demande du navigateur." });
               }
+              setPushBusy(false);
             }}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition">
-            <Bell className="h-4 w-4"/>Tester maintenant
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition disabled:opacity-60">
+            {pushBusy ? <RefreshCw className="h-4 w-4 animate-spin"/> : <Bell className="h-4 w-4"/>}{pushBusy ? "Test en cours…" : "Tester en arrière-plan"}
           </button>
           <div className={`text-xs px-3 py-2 rounded-md border ${
             perm === "granted" ? "border-[color:var(--success)]/40 bg-[color:var(--success)]/10 text-[color:var(--success)]"
             : perm === "denied" ? "border-destructive/40 bg-destructive/10 text-destructive"
             : "border-border bg-secondary/30 text-muted-foreground"
           }`}>
-            État : {perm === "granted" ? "✓ Notifications autorisées" : perm === "denied" ? "✗ Notifications bloquées" : "⚠ Permission non demandée"}
+            État : {backgroundPush ? "✓ Rappels serveur actifs" : perm === "granted" ? "⚠ Autorisation accordée, abonnement serveur inactif" : perm === "denied" ? "✗ Notifications bloquées" : "⚠ Permission non demandée"}
           </div>
         </div>
         <p className="text-[11px] text-muted-foreground mt-3">

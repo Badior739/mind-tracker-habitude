@@ -1,5 +1,6 @@
 import type { NotifPrefs } from "./prefs";
 import { ACTIVITIES, daysInMonth, type DayEntry, type FinanceLine } from "./mind-data";
+import { disablePushSubscription, getPushPublicKey, savePushSubscription, sendTestPush } from "./push.functions";
 
 export type NotificationStatus = {
   supported: boolean;
@@ -20,6 +21,36 @@ export type NotifyResult = {
 };
 
 let notificationWorkerPromise: Promise<ServiceWorkerRegistration | null> | null = null;
+const INSTALLATION_ID_KEY = "mt.push.installation.id";
+const INSTALLATION_SECRET_KEY = "mt.push.installation.secret";
+
+type InstallationCredentials = { installationId: string; installationSecret: string };
+
+function encodeBase64Url(bytes: Uint8Array) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+
+function decodeBase64Url(value: string) {
+  const base64 = value.replaceAll("-", "+").replaceAll("_", "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  const binary = atob(base64);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function getInstallationCredentials(): InstallationCredentials {
+  let installationId = localStorage.getItem(INSTALLATION_ID_KEY);
+  let installationSecret = localStorage.getItem(INSTALLATION_SECRET_KEY);
+  if (!installationId) {
+    installationId = crypto.randomUUID();
+    localStorage.setItem(INSTALLATION_ID_KEY, installationId);
+  }
+  if (!installationSecret) {
+    installationSecret = encodeBase64Url(crypto.getRandomValues(new Uint8Array(32)));
+    localStorage.setItem(INSTALLATION_SECRET_KEY, installationSecret);
+  }
+  return { installationId, installationSecret };
+}
 
 export function getNotificationStatus(): NotificationStatus {
   if (typeof window === "undefined") {
@@ -97,6 +128,52 @@ export async function ensureNotificationWorker() {
       .catch(() => null);
   }
   return notificationWorkerPromise;
+}
+
+export async function hasBackgroundPushSubscription() {
+  const registration = await ensureNotificationWorker();
+  if (!registration || !("PushManager" in window)) return false;
+  return Boolean(await registration.pushManager.getSubscription());
+}
+
+export async function syncBackgroundPush(prefs: NotifPrefs) {
+  if (typeof window === "undefined" || Notification.permission !== "granted") {
+    throw new Error("Autorisez d'abord les notifications sur cet appareil.");
+  }
+  const registration = await ensureNotificationWorker();
+  if (!registration || !("pushManager" in registration)) {
+    throw new Error("Les notifications en arrière-plan ne sont pas disponibles sur cet appareil.");
+  }
+  const credentials = getInstallationCredentials();
+  if (!prefs.enabled) {
+    await disablePushSubscription({ data: credentials });
+    return { active: false };
+  }
+  let subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    const { publicKey } = await getPushPublicKey();
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: decodeBase64Url(publicKey),
+    });
+  }
+  const json = subscription.toJSON();
+  if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) {
+    throw new Error("L'abonnement envoyé par le téléphone est incomplet.");
+  }
+  await savePushSubscription({
+    data: {
+      ...credentials,
+      subscription: { endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth } },
+      prefs,
+    },
+  });
+  return { active: true };
+}
+
+export async function testBackgroundPush(prefs: NotifPrefs) {
+  await syncBackgroundPush({ ...prefs, enabled: true });
+  await sendTestPush({ data: getInstallationCredentials() });
 }
 
 async function fallbackToast(title: string, body: string, reason: string): Promise<NotifyResult> {
