@@ -13,7 +13,7 @@ import { PinLock } from "@/components/mind/PinLock";
 import { StreaksPanel } from "@/components/mind/Streaks";
 import { useLocalStorage } from "@/lib/storage";
 import { DEFAULT_APP_PREFS, DEFAULT_NOTIFS, type AppPrefs, type NotifPrefs } from "@/lib/prefs";
-import { ensureNotificationWorker, getNotificationStatus, requestNotifPermission, runNotificationChecks } from "@/lib/notifications";
+import { ensureNotificationWorker, getNotificationStatus, requestNotifPermission, runNotificationChecks, syncBackgroundPush } from "@/lib/notifications";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
@@ -73,8 +73,14 @@ function Index() {
                 const p = await requestNotifPermission();
                 if (p === "granted") {
                   await ensureNotificationWorker();
-                  setNotifs({ ...notifs, enabled: true });
-                  toast.success("Notifications autorisées", { description: "Les rappels sont maintenant actifs." });
+                  const nextPrefs = { ...notifs, enabled: true };
+                  setNotifs(nextPrefs);
+                  try {
+                    await syncBackgroundPush(nextPrefs);
+                    toast.success("Rappels activés", { description: "Ils fonctionneront aussi lorsque l'application est fermée." });
+                  } catch (error) {
+                    toast.error("Activation incomplète", { description: error instanceof Error ? error.message : "Ouvrez Réglages pour réessayer." });
+                  }
                 } else {
                   toast.error("Notifications non autorisées", { description: "Activez-les dans les réglages du navigateur puis réessayez." });
                 }
@@ -85,6 +91,13 @@ function Index() {
 
         if (status.permission === "granted") {
           await ensureNotificationWorker();
+          if (notifs.enabled) {
+            try {
+              await syncBackgroundPush(notifs);
+            } catch {
+              toast.error("Rappels hors application inactifs", { description: "Ouvrez Réglages puis lancez le test en arrière-plan." });
+            }
+          }
         }
       }
       runNotificationChecks(notifs);
