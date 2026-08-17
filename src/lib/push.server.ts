@@ -47,5 +47,5 @@ export async function sendWebPush(
     target,
     keys,
   );
-  return fetch(target.endpoint, payload);
+  return fetch(target.endpoint, payload as unknown as RequestInit);
 }
