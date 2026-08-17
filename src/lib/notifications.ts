@@ -154,7 +154,7 @@ export async function syncBackgroundPush(prefs: NotifPrefs) {
     const { publicKey } = await getPushPublicKey();
     subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: decodeBase64Url(publicKey),
+      applicationServerKey: decodeBase64Url(publicKey) as BufferSource,
     });
   }
   const json = subscription.toJSON();
