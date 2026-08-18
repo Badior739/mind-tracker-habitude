@@ -150,8 +150,15 @@ export async function syncBackgroundPush(prefs: NotifPrefs) {
     return { active: false };
   }
   let subscription = await registration.pushManager.getSubscription();
+  const { publicKey } = await getPushPublicKey();
+  if (subscription) {
+    const current = subscription.options?.applicationServerKey;
+    if (current && encodeBase64Url(new Uint8Array(current)) !== publicKey) {
+      await subscription.unsubscribe();
+      subscription = null;
+    }
+  }
   if (!subscription) {
-    const { publicKey } = await getPushPublicKey();
     subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: decodeBase64Url(publicKey) as BufferSource,
