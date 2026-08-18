@@ -19,8 +19,9 @@ export function getPushKeys(): PushKeys {
   const privateKey = process.env["VAPID_SERVER_PRIVATE_KEY"];
   const subject = process.env["VAPID_SUBJECT"];
   if (!privateKey || !subject) throw new Error("La configuration des notifications push est incomplète.");
-  const configuredPublicKey = process.env["VAPID_SERVER_PUBLIC_KEY"];
-  const publicKey = configuredPublicKey || encodeBase64Url(p256.getPublicKey(decodeBase64Url(privateKey), false));
+  // La clé publique est toujours dérivée de la clé privée : une valeur configurée
+  // désynchronisée provoque « point is not on curve » côté navigateur.
+  const publicKey = encodeBase64Url(p256.getPublicKey(decodeBase64Url(privateKey), false));
   return { privateKey, publicKey, subject };
 }
 
