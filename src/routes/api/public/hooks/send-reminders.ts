@@ -31,7 +31,9 @@ function due(row: ReminderRow, type: "activities" | "finances") {
   const enabled = type === "activities" ? row.activities_enabled : row.finances_enabled;
   const frequency = type === "activities" ? row.activities_frequency : row.finances_frequency;
   const time = (type === "activities" ? row.activities_time : row.finances_time).slice(0, 5);
-  return enabled && local.time === time && (frequency === "daily" || local.sunday)
+  // Fenêtre de rattrapage : dès que l'heure locale a dépassé l'heure cible,
+  // le rappel du jour part s'il n'a pas déjà été délivré (clé de période unique).
+  return enabled && local.time >= time && (frequency === "daily" || local.sunday)
     ? { periodKey: frequency === "daily" ? local.date : `${local.date}-weekly`, local }
     : null;
 }
