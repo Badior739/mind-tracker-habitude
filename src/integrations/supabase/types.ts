@@ -16,6 +16,8 @@ export type Database = {
     Tables: {
       push_deliveries: {
         Row: {
+          acknowledged_at: string | null
+          attempts: number
           delivered_at: string
           id: string
           period_key: string
@@ -23,6 +25,8 @@ export type Database = {
           subscription_id: string
         }
         Insert: {
+          acknowledged_at?: string | null
+          attempts?: number
           delivered_at?: string
           id?: string
           period_key: string
@@ -30,6 +34,8 @@ export type Database = {
           subscription_id: string
         }
         Update: {
+          acknowledged_at?: string | null
+          attempts?: number
           delivered_at?: string
           id?: string
           period_key?: string
@@ -48,6 +54,7 @@ export type Database = {
       }
       push_subscriptions: {
         Row: {
+          activities_done_date: string | null
           activities_enabled: boolean
           activities_frequency: string
           activities_time: string
@@ -65,8 +72,10 @@ export type Database = {
           secret_hash: string
           timezone: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
+          activities_done_date?: string | null
           activities_enabled?: boolean
           activities_frequency?: string
           activities_time?: string
@@ -84,8 +93,10 @@ export type Database = {
           secret_hash: string
           timezone?: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
+          activities_done_date?: string | null
           activities_enabled?: boolean
           activities_frequency?: string
           activities_time?: string
@@ -103,6 +114,28 @@ export type Database = {
           secret_hash?: string
           timezone?: string
           updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_data: {
+        Row: {
+          key: string
+          updated_at: string
+          user_id: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          user_id: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          user_id?: string
+          value?: Json
         }
         Relationships: []
       }
